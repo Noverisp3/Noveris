@@ -5,7 +5,13 @@
 void Interpreter::interpret(BlockNode* block) {
     for (auto& stmt : block->statements) {
         if (shouldStop) break;
+        // Ensure clean state before each statement
+        shouldBreak = false;
+        hasReturnValue = false;
         stmt->accept(*this);
+        // Reset flags after each statement to prevent state carryover
+        shouldBreak = false;
+        hasReturnValue = false;
     }
 }
 
@@ -101,6 +107,22 @@ void Interpreter::visit(BinaryOpNode& node) {
         } else {
             returnValue = false;
         }
+    } else if (node.op == ">") {
+        if (std::holds_alternative<double>(leftVal) && std::holds_alternative<double>(rightVal)) {
+            returnValue = std::get<double>(leftVal) > std::get<double>(rightVal);
+        } else if (std::holds_alternative<std::string>(leftVal) && std::holds_alternative<std::string>(rightVal)) {
+            returnValue = std::get<std::string>(leftVal) > std::get<std::string>(rightVal);
+        } else {
+            throw std::runtime_error("Cannot compare > between incompatible types");
+        }
+    } else if (node.op == "<") {
+        if (std::holds_alternative<double>(leftVal) && std::holds_alternative<double>(rightVal)) {
+            returnValue = std::get<double>(leftVal) < std::get<double>(rightVal);
+        } else if (std::holds_alternative<std::string>(leftVal) && std::holds_alternative<std::string>(rightVal)) {
+            returnValue = std::get<std::string>(leftVal) < std::get<std::string>(rightVal);
+        } else {
+            throw std::runtime_error("Cannot compare < between incompatible types");
+        }
     }
     
     hasReturnValue = true;
@@ -162,23 +184,40 @@ void Interpreter::visit(DoNode& node) {
 void Interpreter::visit(IfNode& node) {
     node.condition->accept(*this);
     bool condition = valueToBool(returnValue);
-    hasReturnValue = false;
+    
+    // Store the return value before executing branches
+    Value branchValue;
+    bool branchHasValue = false;
     
     if (condition) {
+        hasReturnValue = false;
         for (auto& stmt : node.thenBranch) {
             stmt->accept(*this);
             if (shouldBreak) break;
+            // Capture the return value from the branch
+            if (hasReturnValue) {
+                branchValue = returnValue;
+                branchHasValue = true;
+            }
         }
     } else {
+        hasReturnValue = false;
         for (auto& stmt : node.elseBranch) {
             stmt->accept(*this);
             if (shouldBreak) break;
+            // Capture the return value from the branch
+            if (hasReturnValue) {
+                branchValue = returnValue;
+                branchHasValue = true;
+            }
         }
     }
     
-    // Return the value of the last executed statement for if expressions
-    // If no statements were executed, return false
-    if (!hasReturnValue) {
+    // Set the return value from the executed branch
+    if (branchHasValue) {
+        returnValue = branchValue;
+        hasReturnValue = true;
+    } else {
         returnValue = false;
         hasReturnValue = true;
     }
@@ -186,8 +225,10 @@ void Interpreter::visit(IfNode& node) {
 
 void Interpreter::visit(PrintNode& node) {
     node.value->accept(*this);
+    Value printedValue = returnValue; // Preserve the value before resetting
     std::cout << valueToString(returnValue) << std::endl;
     hasReturnValue = false;
+    returnValue = printedValue; // Restore the preserved value
 }
 
 void Interpreter::visit(OutNode& node) {

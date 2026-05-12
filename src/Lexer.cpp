@@ -161,6 +161,14 @@ std::vector<Token> Lexer::tokenize() {
             advance();
             tokens.emplace_back(TokenType::RPAREN, ")", currentLine, currentColumn);
         }
+        else if (c == '>') {
+            advance();
+            tokens.emplace_back(TokenType::GREATER_THAN, ">", currentLine, currentColumn);
+        }
+        else if (c == '<') {
+            advance();
+            tokens.emplace_back(TokenType::LESS_THAN, "<", currentLine, currentColumn);
+        }
         else if (c == ':') {
             advance();
             tokens.emplace_back(TokenType::COLON, ":", currentLine, currentColumn);
@@ -199,6 +207,8 @@ void Lexer::printTokens(const std::vector<Token>& tokens) {
             case TokenType::IDENTIFIER: std::cout << "IDENTIFIER(" << token.value << ")"; break;
             case TokenType::ASSIGN: std::cout << "ASSIGN"; break;
             case TokenType::EQUALS: std::cout << "EQUALS"; break;
+            case TokenType::GREATER_THAN: std::cout << "GREATER_THAN"; break;
+            case TokenType::LESS_THAN: std::cout << "LESS_THAN"; break;
             case TokenType::PLUS: std::cout << "PLUS"; break;
             case TokenType::MINUS: std::cout << "MINUS"; break;
             case TokenType::MULTIPLY: std::cout << "MULTIPLY"; break;

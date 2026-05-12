@@ -28,6 +28,8 @@ enum class TokenType {
     // Operators
     ASSIGN,
     EQUALS,
+    GREATER_THAN,
+    LESS_THAN,
     PLUS,
     MINUS,
     MULTIPLY,

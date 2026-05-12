@@ -200,134 +200,31 @@ std::unique_ptr<FunctionDefNode> Parser::parseFunctionDef() {
 }
 
 std::unique_ptr<ASTNode> Parser::parseExpression() {
-    // Inline if expression
+    // Inline if expression: if condition: thenExpr [else: elseExpr]
     if (match(TokenType::IF)) {
-        std::unique_ptr<ASTNode> condition = parseEquality();
+        auto condition = parseEquality();
         consume(TokenType::COLON, "Expected ':' after if condition");
         
+        auto thenExpr = parseExpression();
+        std::unique_ptr<ASTNode> elseExpr = nullptr;
+        
+        if (match(TokenType::ELSE)) {
+            consume(TokenType::COLON, "Expected ':' after else");
+            elseExpr = parseExpression();
+        }
+        
+        // Create single-statement branches for clean ternary-style parsing
         std::vector<std::unique_ptr<ASTNode>> thenBranch;
         std::vector<std::unique_ptr<ASTNode>> elseBranch;
         
-        skipNewlines();
-        
-        // Parse then branch (multiple statements inside inline if)
-        while (!isAtEnd()) {
-            if (peek().type == TokenType::RPAREN) {
-                break;
-            }
-            // Only break on else if it's at the same indentation level (not nested)
-            if (peek().type == TokenType::ELSE) {
-                // Check if this else belongs to this if or a nested one
-                // Simple heuristic: if we're not inside a nested if, this else belongs to us
-                break;
-            }
-            if (peek().type == TokenType::IDENTIFIER && peek(1).type == TokenType::LPAREN) {
-                break;
-            }
-            if (peek().type == TokenType::NEWLINE) {
-                advance();
-                continue;
-            }
-            // Parse statements for if expressions without executing immediately
-            if (match(TokenType::PRINT)) {
-                std::unique_ptr<ASTNode> value = parseExpression();
-                thenBranch.push_back(std::make_unique<PrintNode>(std::move(value)));
-            } else if (match(TokenType::SET)) {
-                Token name = consume(TokenType::IDENTIFIER, "Expected variable name after 'set'");
-                std::unique_ptr<ASTNode> value = parseExpression();
-                thenBranch.push_back(std::make_unique<SetNode>(name.value, std::move(value)));
-            } else if (match(TokenType::DO)) {
-                Token name = consume(TokenType::IDENTIFIER, "Expected variable name after 'do'");
-                std::unique_ptr<ASTNode> value = parseExpression();
-                thenBranch.push_back(std::make_unique<DoNode>(name.value, std::move(value)));
-            } else if (match(TokenType::RUN)) {
-                std::unique_ptr<ASTNode> argument = parseExpression();
-                thenBranch.push_back(std::make_unique<RunNode>(std::move(argument)));
-            } else if (match(TokenType::RES)) {
-                std::unique_ptr<ASTNode> value = parseExpression();
-                thenBranch.push_back(std::make_unique<ResNode>(std::move(value)));
-            } else if (match(TokenType::OUT)) {
-                thenBranch.push_back(std::make_unique<OutNode>());
-            } else if (match(TokenType::STOP)) {
-                thenBranch.push_back(std::make_unique<StopNode>());
-            } else if (match(TokenType::IF)) {
-                // Handle nested if expressions
-                thenBranch.push_back(parseExpression());
-            } else if (peek().type == TokenType::COLON) {
-                // This is likely a nested if expression that we're already parsing
-                // Skip the colon as it's part of the nested structure
-                advance();
-            } else if (peek().type == TokenType::ELSE) {
-                // This is likely part of a nested if expression
-                // Skip the else token as it's handled by the nested if parsing
-                advance();
-            } else {
-                thenBranch.push_back(parseExpression());
-            }
-            skipNewlines();
+        thenBranch.push_back(std::move(thenExpr));
+        if (elseExpr) {
+            elseBranch.push_back(std::move(elseExpr));
         }
         
-        // Check for else in inline if
-        if (match(TokenType::ELSE)) {
-            consume(TokenType::COLON, "Expected ':' after else");
-            skipNewlines();
-            
-            // Parse else branch (multiple statements inside inline if)
-            while (!isAtEnd()) {
-                if (peek().type == TokenType::RPAREN) {
-                    break;
-                }
-                if (peek().type == TokenType::IDENTIFIER && peek(1).type == TokenType::LPAREN) {
-                    break;
-                }
-                if (peek().type == TokenType::IF) {
-                    break; // Don't parse nested if statements in else branch
-                }
-                if (peek().type == TokenType::NEWLINE) {
-                    advance();
-                    continue;
-                }
-                // Parse statements for if expressions without executing immediately
-                if (match(TokenType::PRINT)) {
-                    std::unique_ptr<ASTNode> value = parseExpression();
-                    elseBranch.push_back(std::make_unique<PrintNode>(std::move(value)));
-                } else if (match(TokenType::SET)) {
-                    Token name = consume(TokenType::IDENTIFIER, "Expected variable name after 'set'");
-                    std::unique_ptr<ASTNode> value = parseExpression();
-                    elseBranch.push_back(std::make_unique<SetNode>(name.value, std::move(value)));
-                } else if (match(TokenType::DO)) {
-                    Token name = consume(TokenType::IDENTIFIER, "Expected variable name after 'do'");
-                    std::unique_ptr<ASTNode> value = parseExpression();
-                    elseBranch.push_back(std::make_unique<DoNode>(name.value, std::move(value)));
-                } else if (match(TokenType::RUN)) {
-                    std::unique_ptr<ASTNode> argument = parseExpression();
-                    elseBranch.push_back(std::make_unique<RunNode>(std::move(argument)));
-                } else if (match(TokenType::RES)) {
-                    std::unique_ptr<ASTNode> value = parseExpression();
-                    elseBranch.push_back(std::make_unique<ResNode>(std::move(value)));
-                } else if (match(TokenType::OUT)) {
-                    elseBranch.push_back(std::make_unique<OutNode>());
-                } else if (match(TokenType::STOP)) {
-                    elseBranch.push_back(std::make_unique<StopNode>());
-                } else if (match(TokenType::IF)) {
-                    // Handle nested if expressions in else branch
-                    elseBranch.push_back(parseExpression());
-                } else if (peek().type == TokenType::COLON) {
-                    // This is likely a nested if expression that we're already parsing
-                    // Skip the colon as it's part of the nested structure
-                    advance();
-                } else if (peek().type == TokenType::ELSE) {
-                    // This is likely part of a nested if expression
-                    // Skip the else token as it's handled by the nested if parsing
-                    advance();
-                } else {
-                    elseBranch.push_back(parseExpression());
-                }
-                skipNewlines();
-            }
-        }
-        
-        return std::make_unique<IfNode>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+        return std::make_unique<IfNode>(std::move(condition), 
+                                    std::move(thenBranch), 
+                                    std::move(elseBranch));
     }
     
     return parseEquality();
@@ -336,10 +233,22 @@ std::unique_ptr<ASTNode> Parser::parseExpression() {
 std::unique_ptr<ASTNode> Parser::parseEquality() {
     std::unique_ptr<ASTNode> expr = parseAdditive();
     
-    while (match(TokenType::EQUALS)) {
-        std::string op = tokens[current - 1].value;
-        std::unique_ptr<ASTNode> right = parseAdditive();
-        expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+    while (true) {
+        if (match(TokenType::EQUALS)) {
+            std::string op = tokens[current - 1].value;
+            std::unique_ptr<ASTNode> right = parseAdditive();
+            expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+        } else if (match(TokenType::GREATER_THAN)) {
+            std::string op = tokens[current - 1].value;
+            std::unique_ptr<ASTNode> right = parseAdditive();
+            expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+        } else if (match(TokenType::LESS_THAN)) {
+            std::string op = tokens[current - 1].value;
+            std::unique_ptr<ASTNode> right = parseAdditive();
+            expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+        } else {
+            break;
+        }
     }
     
     return expr;
