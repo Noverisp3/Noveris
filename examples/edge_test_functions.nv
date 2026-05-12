@@ -1,0 +1,35 @@
+// Test function definitions and calls
+testFunc(
+    print "Inside testFunc"
+    set result 42
+    print result
+)
+
+anotherFunc(
+    set x 10
+    set y 20
+    print x + y
+)
+
+print "Calling testFunc:"
+run testFunc()
+
+print "Calling anotherFunc:"
+run anotherFunc()
+
+print "Function with return:"
+returnFunc(
+    res "Hello from function"
+)
+
+print run returnFunc()
+
+print "Function with early exit:"
+exitFunc(
+    print "Before exit"
+    out
+    print "This should not print"
+)
+
+run exitFunc()
+print "After calling exitFunc"

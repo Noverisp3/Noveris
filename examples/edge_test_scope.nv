@@ -1,0 +1,40 @@
+// Test variable scope and edge cases
+set global_var "global"
+
+testScope(
+    print "Inside function:"
+    set local_var "local"
+    print global_var
+    print local_var
+)
+
+print "Before function call:"
+print global_var
+// print local_var  // This should cause an error
+
+run testScope()
+
+print "After function call:"
+print global_var
+// print local_var  // This should still cause an error
+
+print "Testing variable reassignment:"
+set x 5
+print x
+set x 10
+print x
+set x "string"
+print x
+
+print "Testing undefined variables:"
+// print undefined_var  // This should cause an error
+
+print "Testing empty strings:"
+set empty ""
+print empty
+print empty + "test"
+
+print "Testing zero:"
+set zero 0
+print zero
+print zero + 5

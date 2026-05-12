@@ -1,0 +1,44 @@
+// Test boolean logic and comparisons
+set a 10
+set b 20
+set flag1 true
+set flag2 false
+
+print "Numeric comparisons:"
+print a = a
+print a = b
+print b = a
+print b = b
+
+print "Boolean comparisons:"
+print flag1 = true
+print flag1 = false
+print flag2 = true
+print flag2 = false
+
+print "String comparisons:"
+set str1 "hello"
+set str2 "hello"
+set str3 "world"
+print str1 = str2
+print str1 = str3
+
+print "Boolean in if statements:"
+if flag1:
+    print "flag1 is true"
+
+if flag2:
+    print "flag2 is true"
+else:
+    print "flag2 is false"
+
+print "Complex boolean logic:"
+print(if flag1 = true:
+    "flag1 is indeed true"
+else:
+    "flag1 is false"
+)
+
+print "Boolean arithmetic:"
+print flag1 + 1
+print flag2 + 1

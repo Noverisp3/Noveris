@@ -1,0 +1,41 @@
+// Test nested if expressions and statements
+set x 10
+set y 20
+set z 30
+
+print "Nested if statements:"
+if x = 10:
+    print "x is 10"
+    if y = 20:
+        print "y is 20"
+        if z = 30:
+            print "z is 30"
+        else:
+            print "z is not 30"
+    else:
+        print "y is not 20"
+else:
+    print "x is not 10"
+
+print "Nested if expressions:"
+print(if x = 10:
+    if y = 20:
+        "both x and y match"
+    else:
+        "x matches but y doesn't"
+else:
+    "x doesn't match"
+)
+
+print "Complex nested expression:"
+print(if x = 10:
+    if y = 20:
+        if z = 30:
+            "all match"
+        else:
+            "x and y match, z doesn't"
+    else:
+        "x matches, y doesn't"
+else:
+    "x doesn't match"
+)

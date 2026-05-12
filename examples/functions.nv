@@ -1,0 +1,8 @@
+// Function definition and call example
+greet(
+    set name "World"
+    print "Hello, " + name
+    res true
+)
+
+run greet()

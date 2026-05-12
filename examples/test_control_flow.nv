@@ -1,0 +1,30 @@
+// Test control flow statements
+testOut(
+    print "Before out"
+    out
+    print "This should NOT print (out test)"
+)
+
+testRes(
+    print "Before res" 
+    res "Return value"
+    print "This should NOT print (res test)"
+)
+
+print "After testOut:"
+run testOut()
+print "Function completed, back to main"
+
+print "After testRes:"
+print run testRes()
+print "Function completed, back to main"
+
+print "Testing stop - this should be the last output:"
+testStop(
+    print "Before stop"
+    stop
+    print "This should NOT print (stop test)"
+)
+
+run testStop()
+print "This should NEVER print (after stop)"

@@ -1,0 +1,12 @@
+// Mathematical operations example
+set x 10
+set y 20
+
+do result x + y
+print result
+
+do result x * y
+print result
+
+do result y / x
+print result

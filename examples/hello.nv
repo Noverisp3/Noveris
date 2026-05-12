@@ -1,0 +1,3 @@
+// Simple hello world example
+set message "Hello, World!"
+print message

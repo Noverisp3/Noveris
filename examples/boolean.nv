@@ -1,0 +1,12 @@
+set flag true
+print flag
+
+set flag false
+print flag
+
+if flag = true:
+    print "flag is true"
+else:
+    print "flag is false"
+    print "This is in else branch"
+    print flag

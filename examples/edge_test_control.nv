@@ -1,0 +1,44 @@
+// Test control flow (out, res, stop)
+testOut(
+    print "Before out"
+    out
+    print "This should not print"
+)
+
+testRes(
+    print "Before res"
+    res "Returned value"
+    print "This should not print"
+)
+
+testStop(
+    print "Before stop"
+    stop
+    print "This should not print"
+)
+
+print "Testing out:"
+run testOut()
+print "After out function"
+
+print "Testing res:"
+print run testRes()
+print "After res function"
+
+print "Testing stop:"
+run testStop()
+print "This should not print after stop"
+
+print "Testing nested control flow:"
+nestedTest(
+    if true:
+        print "Before nested out"
+        out
+        print "Should not print"
+    else:
+        print "Should not execute"
+    print "Should not print either"
+)
+
+run nestedTest()
+print "After nested test"

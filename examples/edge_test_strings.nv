@@ -1,0 +1,15 @@
+// Test string operations and concatenation
+set str1 "Hello"
+set str2 "World"
+set num 42
+
+print "String concatenation:"
+print str1 + " " + str2
+print "String + number:"
+print str1 + num
+print "Number + string:"
+print num + str2
+print "Empty string:"
+print "" + "test"
+print "String with special chars:"
+print "Hello\nWorld"

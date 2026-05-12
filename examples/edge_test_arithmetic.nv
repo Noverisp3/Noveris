@@ -1,0 +1,15 @@
+// Test basic arithmetic operations
+set a 10
+set b 3
+print "Addition:"
+print a + b
+print "Subtraction:"
+print a - b
+print "Multiplication:"
+print a * b
+print "Division:"
+print a / b
+print "Division by zero:"
+// print a / 0  // This should cause an error
+print "Complex expression:"
+print a + b * 2 - 1
