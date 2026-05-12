@@ -40,7 +40,19 @@ set name "Noveris"
 - Basic arithmetic: `+`, `-`, `*`, `/`
 - Assignment operations: `do` and `set`
 - Parentheses for operation precedence
-- Equality comparison: `=`
+- Comparison operators: `=`, `>`, `<`
+
+### Comparison Operations
+```noveris
+if x > 5:
+    print "x is greater than 5"
+
+if y < 10:
+    print "y is less than 10"
+
+if value = 42:
+    print "value equals 42"
+```
 
 ### Data Types
 - Numbers (double precision floating point)
