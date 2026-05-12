@@ -40,7 +40,8 @@ set name "Noveris"
 - Basic arithmetic: `+`, `-`, `*`, `/`
 - Assignment operations: `do` and `set`
 - Parentheses for operation precedence
-- Comparison operators: `=`, `>`, `<`
+- Comparison operators: `=`, `>`, `<`, `>=`, `<=`, `!=`
+- Logical operators: `&&`, `||`, `!`
 
 ### Comparison Operations
 ```noveris
@@ -174,6 +175,25 @@ For verbose output (showing lexical analysis, parsing, and execution details):
 ```bash
 ./bin/noveris -v path/to/your/file.nv
 ./bin/noveris --verbose path/to/your/file.nv
+```
+
+### String Escapes in Print Statements
+
+The `print` statement supports the following escape sequences:
+
+- `\n` - Newline character
+- `\t` - Tab character  
+- `\r` - Carriage return
+- `\\` - Backslash
+- `\"` - Double quote
+- `\'` - Single quote
+
+#### Example Usage:
+```noveris
+print "Hello\\nWorld"          // Outputs: Hello (newline) World
+print "Tab\\tSeparated"        // Outputs: Tab (tab) Separated
+print "Quote: \\\"Hello\\\""   // Outputs: Quote: "Hello"
+print "Path: C:\\\\Users"      // Outputs: Path: C:\Users
 ```
 
 On Windows:
