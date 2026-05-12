@@ -74,7 +74,31 @@ Token Lexer::readString() {
         if (current() == '\\') {
             advance();
             if (current() != '\0') {
-                str += current();
+                // Convert escape sequences to actual characters
+                switch (current()) {
+                    case 'n':
+                        str += '\n';
+                        break;
+                    case 't':
+                        str += '\t';
+                        break;
+                    case 'r':
+                        str += '\r';
+                        break;
+                    case '\\':
+                        str += '\\';
+                        break;
+                    case '"':
+                        str += '"';
+                        break;
+                    case '\'':
+                        str += '\'';
+                        break;
+                    default:
+                        // Unknown escape sequence, keep the character
+                        str += current();
+                        break;
+                }
                 advance();
             }
         } else {
@@ -135,7 +159,12 @@ std::vector<Token> Lexer::tokenize() {
         }
         else if (c == '=') {
             advance();
-            tokens.emplace_back(TokenType::EQUALS, "=", currentLine, currentColumn);
+            if (current() == '=') {
+                advance();
+                tokens.emplace_back(TokenType::EQUALS, "==", currentLine, currentColumn);
+            } else {
+                tokens.emplace_back(TokenType::ASSIGN, "=", currentLine, currentColumn);
+            }
         }
         else if (c == '+') {
             advance();
@@ -163,11 +192,48 @@ std::vector<Token> Lexer::tokenize() {
         }
         else if (c == '>') {
             advance();
-            tokens.emplace_back(TokenType::GREATER_THAN, ">", currentLine, currentColumn);
+            if (current() == '=') {
+                advance();
+                tokens.emplace_back(TokenType::GREATER_EQUAL, ">=", currentLine, currentColumn);
+            } else {
+                tokens.emplace_back(TokenType::GREATER_THAN, ">", currentLine, currentColumn);
+            }
         }
         else if (c == '<') {
             advance();
-            tokens.emplace_back(TokenType::LESS_THAN, "<", currentLine, currentColumn);
+            if (current() == '=') {
+                advance();
+                tokens.emplace_back(TokenType::LESS_EQUAL, "<=", currentLine, currentColumn);
+            } else {
+                tokens.emplace_back(TokenType::LESS_THAN, "<", currentLine, currentColumn);
+            }
+        }
+        else if (c == '&') {
+            advance();
+            if (current() == '&') {
+                advance();
+                tokens.emplace_back(TokenType::AND, "&&", currentLine, currentColumn);
+            } else {
+                tokens.emplace_back(TokenType::UNKNOWN, std::string(1, c), currentLine, currentColumn);
+            }
+        }
+        else if (c == '|') {
+            advance();
+            if (current() == '|') {
+                advance();
+                tokens.emplace_back(TokenType::OR, "||", currentLine, currentColumn);
+            } else {
+                tokens.emplace_back(TokenType::UNKNOWN, std::string(1, c), currentLine, currentColumn);
+            }
+        }
+        else if (c == '!') {
+            advance();
+            if (current() == '=') {
+                advance();
+                tokens.emplace_back(TokenType::NOT_EQUAL, "!=", currentLine, currentColumn);
+            } else {
+                tokens.emplace_back(TokenType::NOT, "!", currentLine, currentColumn);
+            }
         }
         else if (c == ':') {
             advance();
@@ -205,10 +271,16 @@ void Lexer::printTokens(const std::vector<Token>& tokens) {
             case TokenType::STRING: std::cout << "STRING(\"" << token.value << "\")"; break;
             case TokenType::BOOLEAN: std::cout << "BOOLEAN(" << token.value << ")"; break;
             case TokenType::IDENTIFIER: std::cout << "IDENTIFIER(" << token.value << ")"; break;
-            case TokenType::ASSIGN: std::cout << "ASSIGN"; break;
             case TokenType::EQUALS: std::cout << "EQUALS"; break;
             case TokenType::GREATER_THAN: std::cout << "GREATER_THAN"; break;
+            case TokenType::GREATER_EQUAL: std::cout << "GREATER_EQUAL"; break;
             case TokenType::LESS_THAN: std::cout << "LESS_THAN"; break;
+            case TokenType::LESS_EQUAL: std::cout << "LESS_EQUAL"; break;
+            case TokenType::NOT_EQUAL: std::cout << "NOT_EQUAL"; break;
+            case TokenType::AND: std::cout << "AND"; break;
+            case TokenType::OR: std::cout << "OR"; break;
+            case TokenType::NOT: std::cout << "NOT"; break;
+            case TokenType::ASSIGN: std::cout << "ASSIGN"; break;
             case TokenType::PLUS: std::cout << "PLUS"; break;
             case TokenType::MINUS: std::cout << "MINUS"; break;
             case TokenType::MULTIPLY: std::cout << "MULTIPLY"; break;

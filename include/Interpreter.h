@@ -17,6 +17,7 @@ private:
     bool shouldStop = false;
     
     std::string valueToString(const Value& val);
+    std::string processEscapeSequences(const std::string& input);
     double valueToDouble(const Value& val);
     bool valueToBool(const Value& val);
     
@@ -30,6 +31,7 @@ public:
     void visit(BooleanNode& node) override;
     void visit(IdentifierNode& node) override;
     void visit(BinaryOpNode& node) override;
+    void visit(UnaryOpNode& node) override;
     void visit(FunctionCallNode& node) override;
     void visit(SetNode& node) override;
     void visit(DoNode& node) override;

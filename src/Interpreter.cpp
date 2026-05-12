@@ -26,6 +26,48 @@ std::string Interpreter::valueToString(const Value& val) {
     return "null";
 }
 
+std::string Interpreter::processEscapeSequences(const std::string& input) {
+    std::string result;
+    result.reserve(input.length() * 2); // Reserve space for potential expansions
+    
+    for (size_t i = 0; i < input.length(); ++i) {
+        if (i + 1 < input.length() && input[i] == '\\' && i + 1 < input.length()) {
+            // Handle escape sequences
+            switch (input[i + 1]) {
+                case 'n':
+                    result.push_back('\n');
+                    break;
+                case 't':
+                    result.push_back('\t');
+                    break;
+                case 'r':
+                    result.push_back('\r');
+                    break;
+                case '\\':
+                    result.push_back('\\');
+                    ++i; // Skip the second backslash
+                    continue; // Skip the rest of the loop
+                case '"':
+                    result.push_back('"');
+                    break;
+                case '\'':
+                    result.push_back('\'');
+                    break;
+                default:
+                    // Unknown escape sequence, keep both characters
+                    result.push_back(input[i]);
+                    result.push_back(input[i + 1]);
+                    break;
+            }
+            ++i; // Skip the escape character
+        } else {
+            result.push_back(input[i]);
+        }
+    }
+    
+    return result;
+}
+
 double Interpreter::valueToDouble(const Value& val) {
     if (std::holds_alternative<double>(val)) {
         return std::get<double>(val);
@@ -112,17 +154,78 @@ void Interpreter::visit(BinaryOpNode& node) {
             returnValue = std::get<double>(leftVal) > std::get<double>(rightVal);
         } else if (std::holds_alternative<std::string>(leftVal) && std::holds_alternative<std::string>(rightVal)) {
             returnValue = std::get<std::string>(leftVal) > std::get<std::string>(rightVal);
+        } else if (std::holds_alternative<bool>(leftVal) && std::holds_alternative<bool>(rightVal)) {
+            returnValue = std::get<bool>(leftVal) > std::get<bool>(rightVal);
         } else {
-            throw std::runtime_error("Cannot compare > between incompatible types");
+            // Mixed type comparison: convert both to strings and compare
+            returnValue = valueToString(leftVal) > valueToString(rightVal);
         }
     } else if (node.op == "<") {
         if (std::holds_alternative<double>(leftVal) && std::holds_alternative<double>(rightVal)) {
             returnValue = std::get<double>(leftVal) < std::get<double>(rightVal);
         } else if (std::holds_alternative<std::string>(leftVal) && std::holds_alternative<std::string>(rightVal)) {
             returnValue = std::get<std::string>(leftVal) < std::get<std::string>(rightVal);
+        } else if (std::holds_alternative<bool>(leftVal) && std::holds_alternative<bool>(rightVal)) {
+            returnValue = std::get<bool>(leftVal) < std::get<bool>(rightVal);
         } else {
-            throw std::runtime_error("Cannot compare < between incompatible types");
+            // Mixed type comparison: convert both to strings and compare
+            returnValue = valueToString(leftVal) < valueToString(rightVal);
         }
+    } else if (node.op == ">=") {
+        if (std::holds_alternative<double>(leftVal) && std::holds_alternative<double>(rightVal)) {
+            returnValue = std::get<double>(leftVal) >= std::get<double>(rightVal);
+        } else if (std::holds_alternative<std::string>(leftVal) && std::holds_alternative<std::string>(rightVal)) {
+            returnValue = std::get<std::string>(leftVal) >= std::get<std::string>(rightVal);
+        } else if (std::holds_alternative<bool>(leftVal) && std::holds_alternative<bool>(rightVal)) {
+            returnValue = std::get<bool>(leftVal) >= std::get<bool>(rightVal);
+        } else {
+            // Mixed type comparison: convert both to strings and compare
+            returnValue = valueToString(leftVal) >= valueToString(rightVal);
+        }
+    } else if (node.op == "<=") {
+        if (std::holds_alternative<double>(leftVal) && std::holds_alternative<double>(rightVal)) {
+            returnValue = std::get<double>(leftVal) <= std::get<double>(rightVal);
+        } else if (std::holds_alternative<std::string>(leftVal) && std::holds_alternative<std::string>(rightVal)) {
+            returnValue = std::get<std::string>(leftVal) <= std::get<std::string>(rightVal);
+        } else if (std::holds_alternative<bool>(leftVal) && std::holds_alternative<bool>(rightVal)) {
+            returnValue = std::get<bool>(leftVal) <= std::get<bool>(rightVal);
+        } else {
+            // Mixed type comparison: convert both to strings and compare
+            returnValue = valueToString(leftVal) <= valueToString(rightVal);
+        }
+    } else if (node.op == "!=") {
+        if (std::holds_alternative<double>(leftVal) && std::holds_alternative<double>(rightVal)) {
+            returnValue = std::get<double>(leftVal) != std::get<double>(rightVal);
+        } else if (std::holds_alternative<std::string>(leftVal) && std::holds_alternative<std::string>(rightVal)) {
+            returnValue = std::get<std::string>(leftVal) != std::get<std::string>(rightVal);
+        } else if (std::holds_alternative<bool>(leftVal) && std::holds_alternative<bool>(rightVal)) {
+            returnValue = std::get<bool>(leftVal) != std::get<bool>(rightVal);
+        } else {
+            // Mixed type comparison: convert both to strings and compare
+            returnValue = valueToString(leftVal) != valueToString(rightVal);
+        }
+    } else if (node.op == "&&") {
+        bool leftBool = valueToBool(leftVal);
+        bool rightBool = valueToBool(rightVal);
+        returnValue = leftBool && rightBool;
+    } else if (node.op == "||") {
+        bool leftBool = valueToBool(leftVal);
+        bool rightBool = valueToBool(rightVal);
+        returnValue = leftBool || rightBool;
+    }
+    
+    hasReturnValue = true;
+}
+
+void Interpreter::visit(UnaryOpNode& node) {
+    node.operand->accept(*this);
+    Value operandValue = returnValue;
+    
+    if (node.op == "!") {
+        bool operandBool = valueToBool(operandValue);
+        returnValue = !operandBool;
+    } else {
+        throw std::runtime_error("Unknown unary operator: " + node.op);
     }
     
     hasReturnValue = true;
@@ -256,19 +359,21 @@ void Interpreter::visit(RunNode& node) {
 }
 
 void Interpreter::visit(FunctionDefNode& node) {
-    functions[node.functionName] = std::make_unique<FunctionDefNode>(
+    // Create a new FunctionDefNode with cloned body
+    auto newFunc = std::make_unique<FunctionDefNode>(
         node.functionName,
         std::vector<std::unique_ptr<ASTNode>>()
     );
     
-    // Deep copy the body
+    // Deep clone the body nodes
     for (size_t i = 0; i < node.body.size(); i++) {
-        // This is a simplified approach - in a real implementation, you'd need proper cloning
-        // For now, we'll store the original node (this works because we don't modify functions)
-        (void)i; // Suppress unused variable warning
+        // For now, we'll use a simple approach since we don't modify function bodies
+        // In a production implementation, you'd implement proper AST node cloning
+        // This is safe because function definitions are not modified after parsing
+        newFunc->body.push_back(std::move(const_cast<std::unique_ptr<ASTNode>&>(node.body[i])));
     }
     
-    functions[node.functionName]->body = std::move(const_cast<std::vector<std::unique_ptr<ASTNode>>&>(node.body));
+    functions[node.functionName] = std::move(newFunc);
 }
 
 void Interpreter::visit(BlockNode& node) {

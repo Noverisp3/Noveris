@@ -27,7 +27,10 @@ private:
     std::unique_ptr<FunctionDefNode> parseFunctionDef();
     
     std::unique_ptr<ASTNode> parseExpression();
+    std::unique_ptr<ASTNode> parseLogicalOr();
+    std::unique_ptr<ASTNode> parseLogicalAnd();
     std::unique_ptr<ASTNode> parseEquality();
+    std::unique_ptr<ASTNode> parseRelational();
     std::unique_ptr<ASTNode> parseAdditive();
     std::unique_ptr<ASTNode> parseMultiplicative();
     std::unique_ptr<ASTNode> parsePrimary();

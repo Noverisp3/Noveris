@@ -202,7 +202,7 @@ std::unique_ptr<FunctionDefNode> Parser::parseFunctionDef() {
 std::unique_ptr<ASTNode> Parser::parseExpression() {
     // Inline if expression: if condition: thenExpr [else: elseExpr]
     if (match(TokenType::IF)) {
-        auto condition = parseEquality();
+        auto condition = parseLogicalOr();
         consume(TokenType::COLON, "Expected ':' after if condition");
         
         auto thenExpr = parseExpression();
@@ -227,24 +227,20 @@ std::unique_ptr<ASTNode> Parser::parseExpression() {
                                     std::move(elseBranch));
     }
     
-    return parseEquality();
+    return parseLogicalOr();
 }
 
 std::unique_ptr<ASTNode> Parser::parseEquality() {
-    std::unique_ptr<ASTNode> expr = parseAdditive();
+    std::unique_ptr<ASTNode> expr = parseRelational();
     
     while (true) {
         if (match(TokenType::EQUALS)) {
             std::string op = tokens[current - 1].value;
-            std::unique_ptr<ASTNode> right = parseAdditive();
+            std::unique_ptr<ASTNode> right = parseRelational();
             expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
-        } else if (match(TokenType::GREATER_THAN)) {
+        } else if (match(TokenType::NOT_EQUAL)) {
             std::string op = tokens[current - 1].value;
-            std::unique_ptr<ASTNode> right = parseAdditive();
-            expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
-        } else if (match(TokenType::LESS_THAN)) {
-            std::string op = tokens[current - 1].value;
-            std::unique_ptr<ASTNode> right = parseAdditive();
+            std::unique_ptr<ASTNode> right = parseRelational();
             expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
         } else {
             break;
@@ -266,6 +262,34 @@ std::unique_ptr<ASTNode> Parser::parseAdditive() {
     return expr;
 }
 
+std::unique_ptr<ASTNode> Parser::parseRelational() {
+    std::unique_ptr<ASTNode> expr = parseAdditive();
+    
+    while (true) {
+        if (match(TokenType::GREATER_THAN)) {
+            std::string op = tokens[current - 1].value;
+            std::unique_ptr<ASTNode> right = parseAdditive();
+            expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+        } else if (match(TokenType::GREATER_EQUAL)) {
+            std::string op = tokens[current - 1].value;
+            std::unique_ptr<ASTNode> right = parseAdditive();
+            expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+        } else if (match(TokenType::LESS_THAN)) {
+            std::string op = tokens[current - 1].value;
+            std::unique_ptr<ASTNode> right = parseAdditive();
+            expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+        } else if (match(TokenType::LESS_EQUAL)) {
+            std::string op = tokens[current - 1].value;
+            std::unique_ptr<ASTNode> right = parseAdditive();
+            expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+        } else {
+            break;
+        }
+    }
+    
+    return expr;
+}
+
 std::unique_ptr<ASTNode> Parser::parseMultiplicative() {
     std::unique_ptr<ASTNode> expr = parsePrimary();
     
@@ -278,8 +302,37 @@ std::unique_ptr<ASTNode> Parser::parseMultiplicative() {
     return expr;
 }
 
+std::unique_ptr<ASTNode> Parser::parseLogicalOr() {
+    std::unique_ptr<ASTNode> expr = parseLogicalAnd();
+    
+    while (match(TokenType::OR)) {
+        std::string op = tokens[current - 1].value;
+        std::unique_ptr<ASTNode> right = parseLogicalAnd();
+        expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+    }
+    
+    return expr;
+}
+
+std::unique_ptr<ASTNode> Parser::parseLogicalAnd() {
+    std::unique_ptr<ASTNode> expr = parseEquality();
+    
+    while (match(TokenType::AND)) {
+        std::string op = tokens[current - 1].value;
+        std::unique_ptr<ASTNode> right = parseEquality();
+        expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+    }
+    
+    return expr;
+}
+
 std::unique_ptr<ASTNode> Parser::parsePrimary() {
     skipNewlines();
+    
+    if (match(TokenType::NOT)) {
+        std::unique_ptr<ASTNode> operand = parsePrimary();
+        return std::make_unique<UnaryOpNode>("!", std::move(operand));
+    }
     
     if (match(TokenType::NUMBER)) {
         return std::make_unique<NumberNode>(std::stod(tokens[current - 1].value));
@@ -306,7 +359,7 @@ std::unique_ptr<ASTNode> Parser::parsePrimary() {
     }
     
     if (match(TokenType::LPAREN)) {
-        std::unique_ptr<ASTNode> expr = parseExpression();
+        std::unique_ptr<ASTNode> expr = parseLogicalOr();
         consume(TokenType::RPAREN, "Expected ')' after expression");
         return expr;
     }

@@ -60,6 +60,16 @@ public:
     void accept(NodeVisitor& visitor) override;
 };
 
+class UnaryOpNode : public ASTNode {
+public:
+    std::string op;
+    std::unique_ptr<ASTNode> operand;
+    
+    UnaryOpNode(const std::string& op, std::unique_ptr<ASTNode> operand)
+        : op(op), operand(std::move(operand)) {}
+    void accept(NodeVisitor& visitor) override;
+};
+
 class FunctionCallNode : public ASTNode {
 public:
     std::string functionName;
@@ -167,6 +177,7 @@ public:
     virtual void visit(BooleanNode& node) = 0;
     virtual void visit(IdentifierNode& node) = 0;
     virtual void visit(BinaryOpNode& node) = 0;
+    virtual void visit(UnaryOpNode& node) = 0;
     virtual void visit(FunctionCallNode& node) = 0;
     virtual void visit(SetNode& node) = 0;
     virtual void visit(DoNode& node) = 0;
@@ -186,6 +197,7 @@ inline void StringNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void BooleanNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void IdentifierNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void BinaryOpNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
+inline void UnaryOpNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void FunctionCallNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void SetNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void DoNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
