@@ -2,6 +2,7 @@
 build/
 dist/
 out/
+local/
 
 # Compiled executables
 *.exe
