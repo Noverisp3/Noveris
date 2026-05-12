@@ -193,23 +193,25 @@ void Interpreter::visit(IfNode& node) {
         hasReturnValue = false;
         for (auto& stmt : node.thenBranch) {
             stmt->accept(*this);
-            if (shouldBreak) break;
-            // Capture the return value from the branch
+            // Capture the return value from the branch if it exists
             if (hasReturnValue) {
                 branchValue = returnValue;
                 branchHasValue = true;
             }
+            // Break immediately if shouldBreak is set (res/out statement encountered)
+            if (shouldBreak) break;
         }
     } else {
         hasReturnValue = false;
         for (auto& stmt : node.elseBranch) {
             stmt->accept(*this);
-            if (shouldBreak) break;
-            // Capture the return value from the branch
+            // Capture the return value from the branch if it exists
             if (hasReturnValue) {
                 branchValue = returnValue;
                 branchHasValue = true;
             }
+            // Break immediately if shouldBreak is set (res/out statement encountered)
+            if (shouldBreak) break;
         }
     }
     
