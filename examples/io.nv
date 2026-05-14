@@ -1,0 +1,4 @@
+exec write -p "io.txt" -d "Noveris is the best\nWhat do you think?"
+
+set data exec read -p "io.txt"
+print data
