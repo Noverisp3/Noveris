@@ -24,11 +24,36 @@ set name "Noveris"
 
 ### Control Flow
 - `if condition:` for conditional execution
+- `while condition:` loops; body uses the same indentation/block rules as `if` (see **Loops** below)
 - `out` to exit/break from current function
 - `res` to return a value and exit function
 - `stop` to terminate entire program
 - Nested conditions are supported
 - Inline if expressions for concise conditional logic
+
+### Loops
+
+**While**
+
+```noveris
+set i 0
+while i < 3:
+    print i
+    do i i + 1
+```
+
+The condition is re-evaluated each iteration. `out`, `res`, and `stop` inside the body behave like they do in `if` branches.
+
+The body ends at the same places as an `if` **then** branch: before `else`, before a closing `)` that ends an enclosing function, or before a line that starts a new function definition `name(` at the same nesting level. Use a helper `name(` … `)` function if you need a short loop followed by more top-level code.
+
+**For (numeric, step 1)**
+
+```noveris
+for n 1 4:
+    print n
+```
+
+Form: `for` *variable* *startExpr* *endExpr* `:` then one or more statements. The variable is set to *start*; each iteration runs while the current value is **less than or equal to** *end* (re-evaluated every iteration); after the body, the variable increases by `1.0`. *start* and *end* must be numeric (numbers or booleans coerced as in arithmetic).
 
 ### Variables
 - Variables are assigned with `set variableName value` or `do variableName value`
@@ -111,6 +136,7 @@ if name = "Noveris":
 - **Type Safety**: Automatic type conversion with runtime checks
 - **Chained comparisons**: Expressions like `x < y <= z` expand to conjunctions of pairwise comparisons
 - **Short-circuit logic**: `&&` and `||` skip evaluating the right operand when it cannot change the result
+- **Loops**: `while` and numeric `for` with inclusive end and step 1
 
 ## Project Structure
 
@@ -132,6 +158,7 @@ Noveris/
 │   ├── conditions.nv      # Conditional logic
 │   ├── functions.nv       # Function definitions
 │   ├── boolean.nv         # Boolean operations
+│   ├── loops.nv           # while and for loops
 │   └── edge_test_*.nv     # Edge case test programs
 ├── local/                 # Optional local scripts and notes (not required to build)
 ├── build/                 # Build output directory (created by CMake)
@@ -232,6 +259,7 @@ The interpreter supports:
 - **Inline expressions** for concise conditional logic
 - **String operations** including concatenation with automatic type conversion
 - **Chained comparisons** and **short-circuit** `&&` / `||` as described above
+- **`while` and `for` loops** as described in **Loops**
 
 ### Error Handling
 
@@ -272,7 +300,7 @@ SOFTWARE.
 
 The Noveris language is designed to be simple yet extensible. Key areas for enhancement:
 - Additional mathematical operations
-- Loop constructs (while, for)
+- Richer loops (`break`/`continue`, custom step in `for`)
 - Array/list data structures
 - File I/O operations
 - Module system
