@@ -20,6 +20,8 @@ private:
     std::string processEscapeSequences(const std::string& input);
     double valueToDouble(const Value& val);
     bool valueToBool(const Value& val);
+
+    [[noreturn]] void throwAt(const ASTNode& node, const std::string& message);
     
 public:
     Interpreter() = default;

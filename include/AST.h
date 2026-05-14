@@ -11,9 +11,32 @@ class NodeVisitor;
 
 // Base AST Node
 class ASTNode {
+protected:
+    int sourceLine = 0;
+    int sourceColumn = 0;
+
+    void copyLocationTo(ASTNode& dest) const {
+        dest.sourceLine = sourceLine;
+        dest.sourceColumn = sourceColumn;
+    }
+
 public:
     virtual ~ASTNode() = default;
     virtual void accept(NodeVisitor& visitor) = 0;
+    virtual std::unique_ptr<ASTNode> clone() const = 0;
+
+    void setSourceLocation(int line, int col) {
+        sourceLine = line;
+        sourceColumn = col;
+    }
+    int getSourceLine() const { return sourceLine; }
+    int getSourceColumn() const { return sourceColumn; }
+    std::string sourcePrefix() const {
+        if (sourceLine <= 0) {
+            return "";
+        }
+        return "[line " + std::to_string(sourceLine) + ", column " + std::to_string(sourceColumn) + "] ";
+    }
 };
 
 // Expression nodes
@@ -23,6 +46,11 @@ public:
     
     NumberNode(double val) : value(val) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        auto n = std::make_unique<NumberNode>(value);
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class StringNode : public ASTNode {
@@ -31,6 +59,11 @@ public:
     
     StringNode(const std::string& val) : value(val) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        auto n = std::make_unique<StringNode>(value);
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class BooleanNode : public ASTNode {
@@ -39,6 +72,11 @@ public:
     
     BooleanNode(bool val) : value(val) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        auto n = std::make_unique<BooleanNode>(value);
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class IdentifierNode : public ASTNode {
@@ -47,6 +85,11 @@ public:
     
     IdentifierNode(const std::string& n) : name(n) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        auto n = std::make_unique<IdentifierNode>(name);
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class BinaryOpNode : public ASTNode {
@@ -58,6 +101,11 @@ public:
     BinaryOpNode(const std::string& op, std::unique_ptr<ASTNode> l, std::unique_ptr<ASTNode> r)
         : op(op), left(std::move(l)), right(std::move(r)) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        auto n = std::make_unique<BinaryOpNode>(op, left->clone(), right->clone());
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class UnaryOpNode : public ASTNode {
@@ -68,6 +116,11 @@ public:
     UnaryOpNode(const std::string& op, std::unique_ptr<ASTNode> operand)
         : op(op), operand(std::move(operand)) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        auto n = std::make_unique<UnaryOpNode>(op, operand->clone());
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class FunctionCallNode : public ASTNode {
@@ -78,6 +131,15 @@ public:
     FunctionCallNode(const std::string& name, std::vector<std::unique_ptr<ASTNode>> args)
         : functionName(name), arguments(std::move(args)) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        std::vector<std::unique_ptr<ASTNode>> clonedArgs;
+        for (const auto& arg : arguments) {
+            clonedArgs.push_back(arg->clone());
+        }
+        auto n = std::make_unique<FunctionCallNode>(functionName, std::move(clonedArgs));
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 // Statement nodes
@@ -89,6 +151,11 @@ public:
     SetNode(const std::string& name, std::unique_ptr<ASTNode> val)
         : variableName(name), value(std::move(val)) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        auto n = std::make_unique<SetNode>(variableName, value->clone());
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class DoNode : public ASTNode {
@@ -99,6 +166,11 @@ public:
     DoNode(const std::string& name, std::unique_ptr<ASTNode> val)
         : variableName(name), value(std::move(val)) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        auto n = std::make_unique<DoNode>(variableName, value->clone());
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class IfNode : public ASTNode {
@@ -112,6 +184,19 @@ public:
         : condition(std::move(cond)), thenBranch(std::move(thenStmts)), 
           elseBranch(std::move(elseStmts)) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        std::vector<std::unique_ptr<ASTNode>> clonedThenBranch;
+        for (const auto& stmt : thenBranch) {
+            clonedThenBranch.push_back(stmt->clone());
+        }
+        std::vector<std::unique_ptr<ASTNode>> clonedElseBranch;
+        for (const auto& stmt : elseBranch) {
+            clonedElseBranch.push_back(stmt->clone());
+        }
+        auto n = std::make_unique<IfNode>(condition->clone(), std::move(clonedThenBranch), std::move(clonedElseBranch));
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class PrintNode : public ASTNode {
@@ -120,12 +205,22 @@ public:
     
     PrintNode(std::unique_ptr<ASTNode> val) : value(std::move(val)) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        auto n = std::make_unique<PrintNode>(value->clone());
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class OutNode : public ASTNode {
 public:
     OutNode() = default;
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        auto n = std::make_unique<OutNode>();
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class ResNode : public ASTNode {
@@ -134,12 +229,22 @@ public:
     
     ResNode(std::unique_ptr<ASTNode> val) : value(std::move(val)) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        auto n = std::make_unique<ResNode>(value->clone());
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class StopNode : public ASTNode {
 public:
     StopNode() = default;
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        auto n = std::make_unique<StopNode>();
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class RunNode : public ASTNode {
@@ -148,6 +253,11 @@ public:
     
     RunNode(std::unique_ptr<ASTNode> call) : functionCall(std::move(call)) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        auto n = std::make_unique<RunNode>(functionCall->clone());
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class FunctionDefNode : public ASTNode {
@@ -158,6 +268,15 @@ public:
     FunctionDefNode(const std::string& name, std::vector<std::unique_ptr<ASTNode>> stmts)
         : functionName(name), body(std::move(stmts)) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        std::vector<std::unique_ptr<ASTNode>> clonedBody;
+        for (const auto& stmt : body) {
+            clonedBody.push_back(stmt->clone());
+        }
+        auto n = std::make_unique<FunctionDefNode>(functionName, std::move(clonedBody));
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 class BlockNode : public ASTNode {
@@ -166,6 +285,15 @@ public:
     
     BlockNode(std::vector<std::unique_ptr<ASTNode>> stmts) : statements(std::move(stmts)) {}
     void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        std::vector<std::unique_ptr<ASTNode>> clonedStatements;
+        for (const auto& stmt : statements) {
+            clonedStatements.push_back(stmt->clone());
+        }
+        auto n = std::make_unique<BlockNode>(std::move(clonedStatements));
+        copyLocationTo(*n);
+        return n;
+    }
 };
 
 // Visitor pattern for AST traversal

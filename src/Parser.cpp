@@ -2,6 +2,20 @@
 #include <stdexcept>
 #include <iostream>
 
+namespace {
+
+void assignNodeLoc(ASTNode* node, const Token& tok) {
+    if (node) {
+        node->setSourceLocation(tok.line, tok.column);
+    }
+}
+
+std::string formatTokenLoc(const Token& tok) {
+    return " at line " + std::to_string(tok.line) + ", column " + std::to_string(tok.column);
+}
+
+} // namespace
+
 Parser::Parser(const std::vector<Token>& tokens) : tokens(tokens), current(0) {}
 
 Token& Parser::peek(size_t ahead) {
@@ -32,7 +46,7 @@ Token Parser::consume(TokenType type, const std::string& message) {
     if (peek().type == type) {
         return advance();
     }
-    throw std::runtime_error(message + " at line " + std::to_string(peek().line));
+    throw std::runtime_error(message + formatTokenLoc(peek()));
 }
 
 void Parser::skipNewlines() {
@@ -77,7 +91,9 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
     }
     
     if (match(TokenType::OUT)) {
-        return std::make_unique<OutNode>();
+        auto n = std::make_unique<OutNode>();
+        assignNodeLoc(n.get(), tokens[current - 1]);
+        return n;
     }
     
     if (match(TokenType::RES)) {
@@ -85,7 +101,9 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
     }
     
     if (match(TokenType::STOP)) {
-        return std::make_unique<StopNode>();
+        auto n = std::make_unique<StopNode>();
+        assignNodeLoc(n.get(), tokens[current - 1]);
+        return n;
     }
     
     if (match(TokenType::RUN)) {
@@ -96,22 +114,27 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
         return parseFunctionDef();
     }
     
-    throw std::runtime_error("Unexpected token: " + peek().value);
+    throw std::runtime_error("Unexpected token: " + peek().value + formatTokenLoc(peek()));
 }
 
 std::unique_ptr<SetNode> Parser::parseSet() {
     Token name = consume(TokenType::IDENTIFIER, "Expected variable name after 'set'");
     std::unique_ptr<ASTNode> value = parseExpression();
-    return std::make_unique<SetNode>(name.value, std::move(value));
+    auto n = std::make_unique<SetNode>(name.value, std::move(value));
+    assignNodeLoc(n.get(), name);
+    return n;
 }
 
 std::unique_ptr<DoNode> Parser::parseDo() {
     Token name = consume(TokenType::IDENTIFIER, "Expected variable name after 'do'");
     std::unique_ptr<ASTNode> value = parseExpression();
-    return std::make_unique<DoNode>(name.value, std::move(value));
+    auto n = std::make_unique<DoNode>(name.value, std::move(value));
+    assignNodeLoc(n.get(), name);
+    return n;
 }
 
 std::unique_ptr<IfNode> Parser::parseIf() {
+    Token anchor = tokens[current - 1];
     std::unique_ptr<ASTNode> condition = parseExpression();
     consume(TokenType::COLON, "Expected ':' after if condition");
     
@@ -152,23 +175,34 @@ std::unique_ptr<IfNode> Parser::parseIf() {
         }
     }
     
-    return std::make_unique<IfNode>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+    auto n = std::make_unique<IfNode>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+    assignNodeLoc(n.get(), anchor);
+    return n;
 }
 
 std::unique_ptr<PrintNode> Parser::parsePrint() {
+    Token anchor = tokens[current - 1];
     std::unique_ptr<ASTNode> value = parseExpression();
-    return std::make_unique<PrintNode>(std::move(value));
+    auto n = std::make_unique<PrintNode>(std::move(value));
+    assignNodeLoc(n.get(), anchor);
+    return n;
 }
 
 std::unique_ptr<ResNode> Parser::parseRes() {
+    Token anchor = tokens[current - 1];
     std::unique_ptr<ASTNode> value = parseExpression();
-    return std::make_unique<ResNode>(std::move(value));
+    auto n = std::make_unique<ResNode>(std::move(value));
+    assignNodeLoc(n.get(), anchor);
+    return n;
 }
 
 std::unique_ptr<RunNode> Parser::parseRun() {
+    Token anchor = tokens[current - 1];
     skipNewlines();
     std::unique_ptr<ASTNode> argument = parseExpression();
-    return std::make_unique<RunNode>(std::move(argument));
+    auto n = std::make_unique<RunNode>(std::move(argument));
+    assignNodeLoc(n.get(), anchor);
+    return n;
 }
 
 std::unique_ptr<FunctionDefNode> Parser::parseFunctionDef() {
@@ -196,12 +230,15 @@ std::unique_ptr<FunctionDefNode> Parser::parseFunctionDef() {
     
     consume(TokenType::RPAREN, "Expected ')' after function body");
     
-    return std::make_unique<FunctionDefNode>(name.value, std::move(body));
+    auto fn = std::make_unique<FunctionDefNode>(name.value, std::move(body));
+    assignNodeLoc(fn.get(), name);
+    return fn;
 }
 
 std::unique_ptr<ASTNode> Parser::parseExpression() {
     // Inline if expression: if condition: thenExpr [else: elseExpr]
     if (match(TokenType::IF)) {
+        Token ifAnchor = tokens[current - 1];
         auto condition = parseLogicalOr();
         consume(TokenType::COLON, "Expected ':' after if condition");
         
@@ -222,69 +259,92 @@ std::unique_ptr<ASTNode> Parser::parseExpression() {
             elseBranch.push_back(std::move(elseExpr));
         }
         
-        return std::make_unique<IfNode>(std::move(condition), 
+        auto n = std::make_unique<IfNode>(std::move(condition), 
                                     std::move(thenBranch), 
                                     std::move(elseBranch));
+        assignNodeLoc(n.get(), ifAnchor);
+        return n;
     }
     
     return parseLogicalOr();
 }
 
 std::unique_ptr<ASTNode> Parser::parseEquality() {
-    std::unique_ptr<ASTNode> expr = parseRelational();
-    
-    while (true) {
-        if (match(TokenType::EQUALS)) {
-            std::string op = tokens[current - 1].value;
-            std::unique_ptr<ASTNode> right = parseRelational();
-            expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
-        } else if (match(TokenType::NOT_EQUAL)) {
-            std::string op = tokens[current - 1].value;
-            std::unique_ptr<ASTNode> right = parseRelational();
-            expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+    return parseChainedComparison();
+}
+
+std::unique_ptr<ASTNode> Parser::parseChainedComparison() {
+    std::vector<std::unique_ptr<ASTNode>> operands;
+    std::vector<std::string> ops;
+    std::vector<Token> opTokens;
+
+    operands.push_back(parseAdditive());
+
+    while (isComparisonOperator()) {
+        Token opTok = tokens[current];
+        advance();
+        ops.push_back(opTok.value);
+        opTokens.push_back(opTok);
+        operands.push_back(parseAdditive());
+    }
+
+    if (ops.empty()) {
+        return std::move(operands[0]);
+    }
+
+    // Leftmost operand
+    std::unique_ptr<ASTNode> left = std::move(operands[0]);
+    std::unique_ptr<ASTNode> combined = nullptr;
+
+    for (size_t i = 0; i < ops.size(); ++i) {
+        // Clone the middle operand (if there is a next comparison) before moving it
+        std::unique_ptr<ASTNode> middleClone = (i < ops.size() - 1) ? operands[i+1]->clone() : nullptr;
+
+        // Move the actual right operand into the comparison node
+        std::unique_ptr<ASTNode> right = std::move(operands[i+1]);
+        auto comparison = std::make_unique<BinaryOpNode>(ops[i], std::move(left), std::move(right));
+        assignNodeLoc(comparison.get(), opTokens[i]);
+
+        if (i == 0) {
+            combined = std::move(comparison);
         } else {
-            break;
+            auto andNode = std::make_unique<BinaryOpNode>("&&", std::move(combined), std::move(comparison));
+            assignNodeLoc(andNode.get(), opTokens[i]);
+            combined = std::move(andNode);
+        }
+
+        // Next left operand is the cloned middle value (the same as the right we just used)
+        if (middleClone) {
+            left = std::move(middleClone);
         }
     }
-    
-    return expr;
+
+    return combined;
+}
+
+bool Parser::isComparisonOperator() {
+    return checkToken(TokenType::GREATER_THAN) ||
+           checkToken(TokenType::GREATER_EQUAL) ||
+           checkToken(TokenType::LESS_THAN) ||
+           checkToken(TokenType::LESS_EQUAL) ||
+           checkToken(TokenType::EQUALS) ||
+           checkToken(TokenType::NOT_EQUAL);
+}
+
+bool Parser::checkToken(TokenType type) {
+    if (current >= tokens.size()) return false;
+    return tokens[current].type == type;
 }
 
 std::unique_ptr<ASTNode> Parser::parseAdditive() {
     std::unique_ptr<ASTNode> expr = parseMultiplicative();
     
     while (match(TokenType::PLUS) || match(TokenType::MINUS)) {
-        std::string op = tokens[current - 1].value;
+        Token opTok = tokens[current - 1];
+        std::string op = opTok.value;
         std::unique_ptr<ASTNode> right = parseMultiplicative();
         expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
-    }
-    
-    return expr;
-}
-
-std::unique_ptr<ASTNode> Parser::parseRelational() {
-    std::unique_ptr<ASTNode> expr = parseAdditive();
-    
-    while (true) {
-        if (match(TokenType::GREATER_THAN)) {
-            std::string op = tokens[current - 1].value;
-            std::unique_ptr<ASTNode> right = parseAdditive();
-            expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
-        } else if (match(TokenType::GREATER_EQUAL)) {
-            std::string op = tokens[current - 1].value;
-            std::unique_ptr<ASTNode> right = parseAdditive();
-            expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
-        } else if (match(TokenType::LESS_THAN)) {
-            std::string op = tokens[current - 1].value;
-            std::unique_ptr<ASTNode> right = parseAdditive();
-            expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
-        } else if (match(TokenType::LESS_EQUAL)) {
-            std::string op = tokens[current - 1].value;
-            std::unique_ptr<ASTNode> right = parseAdditive();
-            expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
-        } else {
-            break;
-        }
+        assignNodeLoc(expr.get(), opTok);
     }
     
     return expr;
@@ -294,9 +354,11 @@ std::unique_ptr<ASTNode> Parser::parseMultiplicative() {
     std::unique_ptr<ASTNode> expr = parsePrimary();
     
     while (match(TokenType::MULTIPLY) || match(TokenType::DIVIDE)) {
-        std::string op = tokens[current - 1].value;
+        Token opTok = tokens[current - 1];
+        std::string op = opTok.value;
         std::unique_ptr<ASTNode> right = parsePrimary();
         expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+        assignNodeLoc(expr.get(), opTok);
     }
     
     return expr;
@@ -306,9 +368,11 @@ std::unique_ptr<ASTNode> Parser::parseLogicalOr() {
     std::unique_ptr<ASTNode> expr = parseLogicalAnd();
     
     while (match(TokenType::OR)) {
-        std::string op = tokens[current - 1].value;
+        Token opTok = tokens[current - 1];
+        std::string op = opTok.value;
         std::unique_ptr<ASTNode> right = parseLogicalAnd();
         expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+        assignNodeLoc(expr.get(), opTok);
     }
     
     return expr;
@@ -318,9 +382,11 @@ std::unique_ptr<ASTNode> Parser::parseLogicalAnd() {
     std::unique_ptr<ASTNode> expr = parseEquality();
     
     while (match(TokenType::AND)) {
-        std::string op = tokens[current - 1].value;
+        Token opTok = tokens[current - 1];
+        std::string op = opTok.value;
         std::unique_ptr<ASTNode> right = parseEquality();
         expr = std::make_unique<BinaryOpNode>(op, std::move(expr), std::move(right));
+        assignNodeLoc(expr.get(), opTok);
     }
     
     return expr;
@@ -330,32 +396,49 @@ std::unique_ptr<ASTNode> Parser::parsePrimary() {
     skipNewlines();
     
     if (match(TokenType::NOT)) {
+        Token notTok = tokens[current - 1];
         std::unique_ptr<ASTNode> operand = parsePrimary();
-        return std::make_unique<UnaryOpNode>("!", std::move(operand));
+        auto n = std::make_unique<UnaryOpNode>("!", std::move(operand));
+        assignNodeLoc(n.get(), notTok);
+        return n;
     }
     
     if (match(TokenType::NUMBER)) {
-        return std::make_unique<NumberNode>(std::stod(tokens[current - 1].value));
+        Token tok = tokens[current - 1];
+        auto n = std::make_unique<NumberNode>(std::stod(tok.value));
+        assignNodeLoc(n.get(), tok);
+        return n;
     }
     
     if (match(TokenType::STRING)) {
-        return std::make_unique<StringNode>(tokens[current - 1].value);
+        Token tok = tokens[current - 1];
+        auto n = std::make_unique<StringNode>(tok.value);
+        assignNodeLoc(n.get(), tok);
+        return n;
     }
     
     if (match(TokenType::BOOLEAN)) {
-        bool value = (tokens[current - 1].value == "true");
-        return std::make_unique<BooleanNode>(value);
+        Token tok = tokens[current - 1];
+        bool value = (tok.value == "true");
+        auto n = std::make_unique<BooleanNode>(value);
+        assignNodeLoc(n.get(), tok);
+        return n;
     }
     
     if (match(TokenType::IDENTIFIER)) {
-        std::string name = tokens[current - 1].value;
+        Token nameTok = tokens[current - 1];
+        std::string name = nameTok.value;
         
         if (match(TokenType::LPAREN)) {
             consume(TokenType::RPAREN, "Expected ')' after function call");
-            return std::make_unique<FunctionCallNode>(name, std::vector<std::unique_ptr<ASTNode>>());
+            auto n = std::make_unique<FunctionCallNode>(name, std::vector<std::unique_ptr<ASTNode>>());
+            assignNodeLoc(n.get(), nameTok);
+            return n;
         }
         
-        return std::make_unique<IdentifierNode>(name);
+        auto n = std::make_unique<IdentifierNode>(name);
+        assignNodeLoc(n.get(), nameTok);
+        return n;
     }
     
     if (match(TokenType::LPAREN)) {
@@ -365,17 +448,21 @@ std::unique_ptr<ASTNode> Parser::parsePrimary() {
     }
     
     if (match(TokenType::RUN)) {
+        Token runTok = tokens[current - 1];
         skipNewlines();
         std::unique_ptr<ASTNode> argument = parseExpression();
-        return std::make_unique<RunNode>(std::move(argument));
+        auto n = std::make_unique<RunNode>(std::move(argument));
+        assignNodeLoc(n.get(), runTok);
+        return n;
     }
     
-    throw std::runtime_error("Unexpected token in expression: " + peek().value);
+    throw std::runtime_error("Unexpected token in expression: " + peek().value + formatTokenLoc(peek()));
 }
 
 std::unique_ptr<ASTNode> Parser::parseFunctionCall() {
     if (match(TokenType::IDENTIFIER)) {
-        std::string name = tokens[current - 1].value;
+        Token nameTok = tokens[current - 1];
+        std::string name = nameTok.value;
         consume(TokenType::LPAREN, "Expected '(' after function name");
         
         std::vector<std::unique_ptr<ASTNode>> arguments;
@@ -390,7 +477,9 @@ std::unique_ptr<ASTNode> Parser::parseFunctionCall() {
             consume(TokenType::RPAREN, "Expected ')' after function arguments");
         }
         
-        return std::make_unique<FunctionCallNode>(name, std::move(arguments));
+        auto n = std::make_unique<FunctionCallNode>(name, std::move(arguments));
+        assignNodeLoc(n.get(), nameTok);
+        return n;
     }
-    throw std::runtime_error("Expected function name");
+    throw std::runtime_error("Expected function name" + formatTokenLoc(peek()));
 }

@@ -2,6 +2,10 @@
 #include <iostream>
 #include <stdexcept>
 
+void Interpreter::throwAt(const ASTNode& node, const std::string& message) {
+    throw std::runtime_error(node.sourcePrefix() + message);
+}
+
 void Interpreter::interpret(BlockNode* block) {
     for (auto& stmt : block->statements) {
         if (shouldStop) break;
@@ -108,11 +112,44 @@ void Interpreter::visit(IdentifierNode& node) {
         returnValue = variables[node.name];
         hasReturnValue = true;
     } else {
-        throw std::runtime_error("Undefined variable: " + node.name);
+        throwAt(node, "Undefined variable: " + node.name);
     }
 }
 
 void Interpreter::visit(BinaryOpNode& node) {
+    if (node.op == "&&") {
+        node.left->accept(*this);
+        Value leftVal = returnValue;
+        hasReturnValue = false;
+        if (!valueToBool(leftVal)) {
+            returnValue = false;
+            hasReturnValue = true;
+            return;
+        }
+        node.right->accept(*this);
+        Value rightVal = returnValue;
+        hasReturnValue = false;
+        returnValue = valueToBool(rightVal);
+        hasReturnValue = true;
+        return;
+    }
+    if (node.op == "||") {
+        node.left->accept(*this);
+        Value leftVal = returnValue;
+        hasReturnValue = false;
+        if (valueToBool(leftVal)) {
+            returnValue = true;
+            hasReturnValue = true;
+            return;
+        }
+        node.right->accept(*this);
+        Value rightVal = returnValue;
+        hasReturnValue = false;
+        returnValue = valueToBool(rightVal);
+        hasReturnValue = true;
+        return;
+    }
+
     node.left->accept(*this);
     Value leftVal = returnValue;
     hasReturnValue = false;
@@ -130,15 +167,30 @@ void Interpreter::visit(BinaryOpNode& node) {
             returnValue = valueToString(leftVal) + valueToString(rightVal);
         }
     } else if (node.op == "-") {
-        returnValue = valueToDouble(leftVal) - valueToDouble(rightVal);
-    } else if (node.op == "*") {
-        returnValue = valueToDouble(leftVal) * valueToDouble(rightVal);
-    } else if (node.op == "/") {
-        double divisor = valueToDouble(rightVal);
-        if (divisor == 0.0) {
-            throw std::runtime_error("Division by zero");
+        try {
+            returnValue = valueToDouble(leftVal) - valueToDouble(rightVal);
+        } catch (const std::runtime_error&) {
+            throwAt(node, "Cannot convert value to number");
         }
-        returnValue = valueToDouble(leftVal) / divisor;
+    } else if (node.op == "*") {
+        try {
+            returnValue = valueToDouble(leftVal) * valueToDouble(rightVal);
+        } catch (const std::runtime_error&) {
+            throwAt(node, "Cannot convert value to number");
+        }
+    } else if (node.op == "/") {
+        double dividend;
+        double divisor;
+        try {
+            dividend = valueToDouble(leftVal);
+            divisor = valueToDouble(rightVal);
+        } catch (const std::runtime_error&) {
+            throwAt(node, "Cannot convert value to number");
+        }
+        if (divisor == 0.0) {
+            throwAt(node, "Division by zero");
+        }
+        returnValue = dividend / divisor;
     } else if (node.op == "=") {
         if (std::holds_alternative<double>(leftVal) && std::holds_alternative<double>(rightVal)) {
             returnValue = std::get<double>(leftVal) == std::get<double>(rightVal);
@@ -204,14 +256,8 @@ void Interpreter::visit(BinaryOpNode& node) {
             // Mixed type comparison: convert both to strings and compare
             returnValue = valueToString(leftVal) != valueToString(rightVal);
         }
-    } else if (node.op == "&&") {
-        bool leftBool = valueToBool(leftVal);
-        bool rightBool = valueToBool(rightVal);
-        returnValue = leftBool && rightBool;
-    } else if (node.op == "||") {
-        bool leftBool = valueToBool(leftVal);
-        bool rightBool = valueToBool(rightVal);
-        returnValue = leftBool || rightBool;
+    } else {
+        throwAt(node, "Unknown binary operator: " + node.op);
     }
     
     hasReturnValue = true;
@@ -225,7 +271,7 @@ void Interpreter::visit(UnaryOpNode& node) {
         bool operandBool = valueToBool(operandValue);
         returnValue = !operandBool;
     } else {
-        throw std::runtime_error("Unknown unary operator: " + node.op);
+        throwAt(node, "Unknown unary operator: " + node.op);
     }
     
     hasReturnValue = true;
@@ -268,7 +314,7 @@ void Interpreter::visit(FunctionCallNode& node) {
             hasReturnValue = true;
         }
     } else {
-        throw std::runtime_error("Undefined function: " + node.functionName);
+        throwAt(node, "Undefined function: " + node.functionName);
     }
 }
 
@@ -359,20 +405,11 @@ void Interpreter::visit(RunNode& node) {
 }
 
 void Interpreter::visit(FunctionDefNode& node) {
-    // Create a new FunctionDefNode with cloned body
-    auto newFunc = std::make_unique<FunctionDefNode>(
-        node.functionName,
-        std::vector<std::unique_ptr<ASTNode>>()
-    );
-    
-    // Deep clone the body nodes
-    for (size_t i = 0; i < node.body.size(); i++) {
-        // For now, we'll use a simple approach since we don't modify function bodies
-        // In a production implementation, you'd implement proper AST node cloning
-        // This is safe because function definitions are not modified after parsing
-        newFunc->body.push_back(std::move(const_cast<std::unique_ptr<ASTNode>&>(node.body[i])));
+    auto newFunc = std::make_unique<FunctionDefNode>(node.functionName,
+        std::vector<std::unique_ptr<ASTNode>>());
+    for (auto& stmt : node.body) {
+        newFunc->body.push_back(stmt->clone());
     }
-    
     functions[node.functionName] = std::move(newFunc);
 }
 

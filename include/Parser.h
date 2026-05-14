@@ -29,10 +29,13 @@ private:
     std::unique_ptr<ASTNode> parseExpression();
     std::unique_ptr<ASTNode> parseLogicalOr();
     std::unique_ptr<ASTNode> parseLogicalAnd();
+    std::unique_ptr<ASTNode> parseChainedComparison();
     std::unique_ptr<ASTNode> parseEquality();
-    std::unique_ptr<ASTNode> parseRelational();
     std::unique_ptr<ASTNode> parseAdditive();
     std::unique_ptr<ASTNode> parseMultiplicative();
+    
+    bool isComparisonOperator();
+    bool checkToken(TokenType type);
     std::unique_ptr<ASTNode> parsePrimary();
     std::unique_ptr<ASTNode> parseFunctionCall();
     
