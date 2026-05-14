@@ -30,6 +30,7 @@ set name "Noveris"
 - `stop` to terminate entire program
 - Nested conditions are supported
 - Inline if expressions for concise conditional logic
+- `exec write/read -p/--path "path"` for file I/O operations
 
 ### Loops
 
@@ -217,7 +218,7 @@ For verbose output (showing lexical analysis, parsing, and execution details):
 The `print` statement supports the following escape sequences:
 
 - `\n` - Newline character
-- `\t` - Tab character  
+- `\t` - Tab character
 - `\r` - Carriage return
 - `\\` - Backslash
 - `\"` - Double quote
@@ -230,6 +231,23 @@ print "Tab\\tSeparated"        // Outputs: Tab (tab) Separated
 print "Quote: \\\"Hello\\\""   // Outputs: Quote: "Hello"
 print "Path: C:\\\\Users"      // Outputs: Path: C:\Users
 ```
+
+### File I/O Operations
+
+The `exec` command provides file read and write capabilities:
+
+#### Write to File
+```noveris
+exec write -p/--path "/path/to/file" -d/--data "DATA"
+```
+
+#### Read from File
+```noveris
+set fileContent exec read -p/--path "/path/to/file"
+print fileContent
+```
+
+The `exec read` command returns the file contents as a string, which can be assigned to a variable or used directly in expressions.
 
 On Windows (typical CMake single-config build, from the project root):
 ```powershell
@@ -302,5 +320,4 @@ The Noveris language is designed to be simple yet extensible. Key areas for enha
 - Additional mathematical operations
 - Richer loops (`break`/`continue`, custom step in `for`)
 - Array/list data structures
-- File I/O operations
 - Module system
