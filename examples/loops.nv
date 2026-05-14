@@ -1,0 +1,23 @@
+// While and for loop examples
+// Bodies of `while` / `for` / `if` run until `else`, `)`, or a new `name(` definition.
+// Wrapping each loop demo in a function ends the inner body at `)`.
+
+whileDemo(
+    set n 10
+    while n >= 0:
+        print n
+        do n n - 1
+)
+
+forDemo(
+    for i 1 10:
+        print i
+)
+
+print "While (count down):"
+run whileDemo()
+
+print "\nFor (inclusive 1 to 10, step 1):"
+run forDemo()
+
+print "\nDone"
