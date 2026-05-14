@@ -38,6 +38,8 @@ public:
     void visit(SetNode& node) override;
     void visit(DoNode& node) override;
     void visit(IfNode& node) override;
+    void visit(WhileNode& node) override;
+    void visit(ForNode& node) override;
     void visit(PrintNode& node) override;
     void visit(OutNode& node) override;
     void visit(ResNode& node) override;

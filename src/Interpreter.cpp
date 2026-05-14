@@ -330,6 +330,86 @@ void Interpreter::visit(DoNode& node) {
     hasReturnValue = false;
 }
 
+void Interpreter::visit(WhileNode& node) {
+    hasReturnValue = false;
+    while (true) {
+        if (shouldStop) {
+            break;
+        }
+        node.condition->accept(*this);
+        if (!valueToBool(returnValue)) {
+            break;
+        }
+        hasReturnValue = false;
+        for (auto& stmt : node.body) {
+            stmt->accept(*this);
+            if (shouldBreak || shouldStop) {
+                break;
+            }
+        }
+        if (shouldStop || shouldBreak) {
+            break;
+        }
+    }
+    hasReturnValue = false;
+}
+
+void Interpreter::visit(ForNode& node) {
+    hasReturnValue = false;
+    node.startExpr->accept(*this);
+    variables[node.loopVar] = returnValue;
+    hasReturnValue = false;
+
+    while (!shouldStop) {
+        auto it = variables.find(node.loopVar);
+        if (it == variables.end()) {
+            throwAt(node, "For loop variable not found: " + node.loopVar);
+        }
+        Value curVal = it->second;
+
+        node.endExpr->accept(*this);
+        Value endVal = returnValue;
+        hasReturnValue = false;
+
+        double curNum;
+        double endNum;
+        try {
+            curNum = valueToDouble(curVal);
+            endNum = valueToDouble(endVal);
+        } catch (const std::runtime_error&) {
+            throwAt(node, "For loop requires numeric loop variable and end bound");
+        }
+
+        if (curNum > endNum) {
+            break;
+        }
+
+        bool leaveLoop = false;
+        for (auto& stmt : node.body) {
+            stmt->accept(*this);
+            if (shouldBreak || shouldStop) {
+                leaveLoop = true;
+                break;
+            }
+        }
+        if (leaveLoop || shouldStop || shouldBreak) {
+            break;
+        }
+
+        it = variables.find(node.loopVar);
+        if (it == variables.end()) {
+            throwAt(node, "For loop variable missing after body: " + node.loopVar);
+        }
+        try {
+            curNum = valueToDouble(it->second);
+        } catch (const std::runtime_error&) {
+            throwAt(node, "For loop variable must stay numeric");
+        }
+        variables[node.loopVar] = curNum + 1.0;
+    }
+    hasReturnValue = false;
+}
+
 void Interpreter::visit(IfNode& node) {
     node.condition->accept(*this);
     bool condition = valueToBool(returnValue);

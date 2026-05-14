@@ -21,6 +21,8 @@ private:
     std::unique_ptr<SetNode> parseSet();
     std::unique_ptr<DoNode> parseDo();
     std::unique_ptr<IfNode> parseIf();
+    std::unique_ptr<WhileNode> parseWhile();
+    std::unique_ptr<ForNode> parseFor();
     std::unique_ptr<PrintNode> parsePrint();
     std::unique_ptr<ResNode> parseRes();
     std::unique_ptr<RunNode> parseRun();
@@ -36,8 +38,11 @@ private:
     
     bool isComparisonOperator();
     bool checkToken(TokenType type);
+    bool checkPeek(size_t ahead, TokenType type);
     std::unique_ptr<ASTNode> parsePrimary();
     std::unique_ptr<ASTNode> parseFunctionCall();
+    
+    void parseBlockBody(std::vector<std::unique_ptr<ASTNode>>& stmts);
     
 public:
     Parser(const std::vector<Token>& tokens);

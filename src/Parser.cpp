@@ -19,6 +19,10 @@ std::string formatTokenLoc(const Token& tok) {
 Parser::Parser(const std::vector<Token>& tokens) : tokens(tokens), current(0) {}
 
 Token& Parser::peek(size_t ahead) {
+    if (tokens.empty()) {
+        static Token eofToken(TokenType::EOF_TOKEN, "", 0, 0);
+        return eofToken;
+    }
     if (current + ahead < tokens.size()) {
         return tokens[current + ahead];
     }
@@ -51,6 +55,22 @@ Token Parser::consume(TokenType type, const std::string& message) {
 
 void Parser::skipNewlines() {
     while (match(TokenType::NEWLINE)) {}
+}
+
+void Parser::parseBlockBody(std::vector<std::unique_ptr<ASTNode>>& stmts) {
+    skipNewlines();
+    while (!isAtEnd()) {
+        TokenType t = peek().type;
+        if (t == TokenType::ELSE || t == TokenType::RPAREN) {
+            break;
+        }
+        if (t == TokenType::NEWLINE) {
+            advance();
+            continue;
+        }
+        stmts.push_back(parseStatement());
+        skipNewlines();
+    }
 }
 
 std::unique_ptr<BlockNode> Parser::parse() {
@@ -86,6 +106,14 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
         return parseIf();
     }
     
+    if (match(TokenType::WHILE)) {
+        return parseWhile();
+    }
+    
+    if (match(TokenType::FOR)) {
+        return parseFor();
+    }
+    
     if (match(TokenType::PRINT)) {
         return parsePrint();
     }
@@ -110,7 +138,7 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
         return parseRun();
     }
     
-    if (peek().type == TokenType::IDENTIFIER && peek(1).type == TokenType::LPAREN) {
+    if (peek().type == TokenType::IDENTIFIER && checkPeek(1, TokenType::LPAREN)) {
         return parseFunctionDef();
     }
     
@@ -141,25 +169,7 @@ std::unique_ptr<IfNode> Parser::parseIf() {
     std::vector<std::unique_ptr<ASTNode>> thenBranch;
     std::vector<std::unique_ptr<ASTNode>> elseBranch;
     
-    skipNewlines();
-    
-    // Parse then branch: multiple statements
-    while (!isAtEnd()) {
-        // End of then branch conditions
-        TokenType t = peek().type;
-        if (t == TokenType::ELSE || t == TokenType::RPAREN) {
-            break;
-        }
-        if (t == TokenType::IDENTIFIER && peek(1).type == TokenType::LPAREN) {
-            break; // start of a new function definition
-        }
-        if (t == TokenType::NEWLINE) {
-            advance();
-            continue;
-        }
-        thenBranch.push_back(parseStatement());
-        skipNewlines();
-    }
+    parseBlockBody(thenBranch);
     
     // Check for else – only a single statement in the else branch
     if (match(TokenType::ELSE)) {
@@ -168,14 +178,35 @@ std::unique_ptr<IfNode> Parser::parseIf() {
         
         // Parse exactly one statement for the else branch
         if (!isAtEnd()) {
-            // Avoid capturing a new function definition as the else statement
-            if (!(peek().type == TokenType::IDENTIFIER && peek(1).type == TokenType::LPAREN)) {
-                elseBranch.push_back(parseStatement());
-            }
+            elseBranch.push_back(parseStatement());
         }
     }
     
     auto n = std::make_unique<IfNode>(std::move(condition), std::move(thenBranch), std::move(elseBranch));
+    assignNodeLoc(n.get(), anchor);
+    return n;
+}
+
+std::unique_ptr<WhileNode> Parser::parseWhile() {
+    Token anchor = tokens[current - 1];
+    std::unique_ptr<ASTNode> condition = parseExpression();
+    consume(TokenType::COLON, "Expected ':' after while condition");
+    std::vector<std::unique_ptr<ASTNode>> body;
+    parseBlockBody(body);
+    auto n = std::make_unique<WhileNode>(std::move(condition), std::move(body));
+    assignNodeLoc(n.get(), anchor);
+    return n;
+}
+
+std::unique_ptr<ForNode> Parser::parseFor() {
+    Token anchor = tokens[current - 1];
+    Token varTok = consume(TokenType::IDENTIFIER, "Expected loop variable after 'for'");
+    std::unique_ptr<ASTNode> startExpr = parseExpression();
+    std::unique_ptr<ASTNode> endExpr = parseExpression();
+    consume(TokenType::COLON, "Expected ':' after for bounds");
+    std::vector<std::unique_ptr<ASTNode>> body;
+    parseBlockBody(body);
+    auto n = std::make_unique<ForNode>(varTok.value, std::move(startExpr), std::move(endExpr), std::move(body));
     assignNodeLoc(n.get(), anchor);
     return n;
 }
@@ -221,7 +252,7 @@ std::unique_ptr<FunctionDefNode> Parser::parseFunctionDef() {
         if (peek().type == TokenType::RPAREN) {
             break;
         }
-        if (peek().type == TokenType::IDENTIFIER && peek(1).type == TokenType::LPAREN) {
+        if (peek().type == TokenType::IDENTIFIER && checkPeek(1, TokenType::LPAREN)) {
             break;
         }
         body.push_back(parseStatement());
@@ -299,6 +330,9 @@ std::unique_ptr<ASTNode> Parser::parseChainedComparison() {
     for (size_t i = 0; i < ops.size(); ++i) {
         // Clone the middle operand (if there is a next comparison) before moving it
         std::unique_ptr<ASTNode> middleClone = (i < ops.size() - 1) ? operands[i+1]->clone() : nullptr;
+        if (i < ops.size() - 1 && !middleClone) {
+            throw std::runtime_error("Failed to clone AST node");
+        }
 
         // Move the actual right operand into the comparison node
         std::unique_ptr<ASTNode> right = std::move(operands[i+1]);
@@ -334,6 +368,11 @@ bool Parser::isComparisonOperator() {
 bool Parser::checkToken(TokenType type) {
     if (current >= tokens.size()) return false;
     return tokens[current].type == type;
+}
+
+bool Parser::checkPeek(size_t ahead, TokenType type) {
+    if (current + ahead >= tokens.size()) return false;
+    return tokens[current + ahead].type == type;
 }
 
 std::unique_ptr<ASTNode> Parser::parseAdditive() {
@@ -445,15 +484,6 @@ std::unique_ptr<ASTNode> Parser::parsePrimary() {
         std::unique_ptr<ASTNode> expr = parseLogicalOr();
         consume(TokenType::RPAREN, "Expected ')' after expression");
         return expr;
-    }
-    
-    if (match(TokenType::RUN)) {
-        Token runTok = tokens[current - 1];
-        skipNewlines();
-        std::unique_ptr<ASTNode> argument = parseExpression();
-        auto n = std::make_unique<RunNode>(std::move(argument));
-        assignNodeLoc(n.get(), runTok);
-        return n;
     }
     
     throw std::runtime_error("Unexpected token in expression: " + peek().value + formatTokenLoc(peek()));

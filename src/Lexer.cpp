@@ -15,6 +15,8 @@ Lexer::Lexer(const std::string& source)
         {"out", TokenType::OUT},
         {"res", TokenType::RES},
         {"stop", TokenType::STOP},
+        {"while", TokenType::WHILE},
+        {"for", TokenType::FOR},
         {"true", TokenType::BOOLEAN},
         {"false", TokenType::BOOLEAN}
       }) {}
@@ -267,6 +269,8 @@ void Lexer::printTokens(const std::vector<Token>& tokens) {
             case TokenType::OUT: std::cout << "OUT"; break;
             case TokenType::RES: std::cout << "RES"; break;
             case TokenType::STOP: std::cout << "STOP"; break;
+            case TokenType::WHILE: std::cout << "WHILE"; break;
+            case TokenType::FOR: std::cout << "FOR"; break;
             case TokenType::NUMBER: std::cout << "NUMBER(" << token.value << ")"; break;
             case TokenType::STRING: std::cout << "STRING(\"" << token.value << "\")"; break;
             case TokenType::BOOLEAN: std::cout << "BOOLEAN(" << token.value << ")"; break;

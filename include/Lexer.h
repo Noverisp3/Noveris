@@ -16,6 +16,8 @@ enum class TokenType {
     OUT,
     RES,
     STOP,
+    WHILE,
+    FOR,
     
     // Literals
     NUMBER,

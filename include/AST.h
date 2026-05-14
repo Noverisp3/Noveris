@@ -279,6 +279,48 @@ public:
     }
 };
 
+class WhileNode : public ASTNode {
+public:
+    std::unique_ptr<ASTNode> condition;
+    std::vector<std::unique_ptr<ASTNode>> body;
+
+    WhileNode(std::unique_ptr<ASTNode> cond, std::vector<std::unique_ptr<ASTNode>> stmts)
+        : condition(std::move(cond)), body(std::move(stmts)) {}
+    void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        std::vector<std::unique_ptr<ASTNode>> clonedBody;
+        for (const auto& stmt : body) {
+            clonedBody.push_back(stmt->clone());
+        }
+        auto n = std::make_unique<WhileNode>(condition->clone(), std::move(clonedBody));
+        copyLocationTo(*n);
+        return n;
+    }
+};
+
+class ForNode : public ASTNode {
+public:
+    std::string loopVar;
+    std::unique_ptr<ASTNode> startExpr;
+    std::unique_ptr<ASTNode> endExpr;
+    std::vector<std::unique_ptr<ASTNode>> body;
+
+    ForNode(std::string var, std::unique_ptr<ASTNode> start, std::unique_ptr<ASTNode> end,
+            std::vector<std::unique_ptr<ASTNode>> stmts)
+        : loopVar(std::move(var)), startExpr(std::move(start)), endExpr(std::move(end)),
+          body(std::move(stmts)) {}
+    void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        std::vector<std::unique_ptr<ASTNode>> clonedBody;
+        for (const auto& stmt : body) {
+            clonedBody.push_back(stmt->clone());
+        }
+        auto n = std::make_unique<ForNode>(loopVar, startExpr->clone(), endExpr->clone(), std::move(clonedBody));
+        copyLocationTo(*n);
+        return n;
+    }
+};
+
 class BlockNode : public ASTNode {
 public:
     std::vector<std::unique_ptr<ASTNode>> statements;
@@ -310,6 +352,8 @@ public:
     virtual void visit(SetNode& node) = 0;
     virtual void visit(DoNode& node) = 0;
     virtual void visit(IfNode& node) = 0;
+    virtual void visit(WhileNode& node) = 0;
+    virtual void visit(ForNode& node) = 0;
     virtual void visit(PrintNode& node) = 0;
     virtual void visit(OutNode& node) = 0;
     virtual void visit(ResNode& node) = 0;
@@ -330,6 +374,8 @@ inline void FunctionCallNode::accept(NodeVisitor& visitor) { visitor.visit(*this
 inline void SetNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void DoNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void IfNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
+inline void WhileNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
+inline void ForNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void PrintNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void OutNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void ResNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
