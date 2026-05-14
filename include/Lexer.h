@@ -47,6 +47,12 @@ enum class TokenType {
     COLON,
     COMMA,
     
+    // Command
+    EXEC,
+
+    // Flags
+    FLAG,
+
     // Special
     NEWLINE,
     EOF_TOKEN,
@@ -80,6 +86,7 @@ private:
     Token readNumber();
     Token readString();
     Token readIdentifier();
+    Token readFlag();
     
 public:
     Lexer(const std::string& source);

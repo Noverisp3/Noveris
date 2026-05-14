@@ -321,6 +321,23 @@ public:
     }
 };
 
+class ExecNode : public ASTNode {
+public:
+    std::string command;      // "write" or "read"
+    std::string filePath;     // argument of --file
+    std::string content;      // for write command only
+
+    ExecNode(const std::string& cmd, const std::string& path, const std::string& cont = "")
+        : command(cmd), filePath(path), content(cont) {}
+
+    void accept(NodeVisitor& visitor) override;
+    std::unique_ptr<ASTNode> clone() const override {
+        auto n = std::make_unique<ExecNode>(command, filePath, content);
+        copyLocationTo(*n);
+        return n;
+    }
+};
+
 class BlockNode : public ASTNode {
 public:
     std::vector<std::unique_ptr<ASTNode>> statements;
@@ -360,6 +377,7 @@ public:
     virtual void visit(StopNode& node) = 0;
     virtual void visit(RunNode& node) = 0;
     virtual void visit(FunctionDefNode& node) = 0;
+    virtual void visit(ExecNode& node) = 0;
     virtual void visit(BlockNode& node) = 0;
 };
 
@@ -382,6 +400,7 @@ inline void ResNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void StopNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void RunNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void FunctionDefNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
+inline void ExecNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 inline void BlockNode::accept(NodeVisitor& visitor) { visitor.visit(*this); }
 
 #endif // AST_H

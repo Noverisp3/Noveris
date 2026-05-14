@@ -484,6 +484,33 @@ void Interpreter::visit(RunNode& node) {
     // Don't reset hasReturnValue - preserve the function's return value
 }
 
+#include <fstream>
+#include <sstream>
+
+void Interpreter::visit(ExecNode& node) {
+    if (node.command == "write") {
+        std::ofstream file(node.filePath);
+        if (!file.is_open()) {
+            throwAt(node, "Could not open file for writing: " + node.filePath);
+        }
+        file << node.content;
+        file.close();
+        hasReturnValue = false;
+    } else if (node.command == "read") {
+        std::ifstream file(node.filePath);
+        if (!file.is_open()) {
+            throwAt(node, "Could not open file for reading: " + node.filePath);
+        }
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        returnValue = buffer.str();
+        hasReturnValue = true;   // read produces a value
+        // Do NOT set shouldBreak, so the value can be used in an assignment
+    } else {
+        throwAt(node, "Unknown exec command: " + node.command);
+    }
+}
+
 void Interpreter::visit(FunctionDefNode& node) {
     auto newFunc = std::make_unique<FunctionDefNode>(node.functionName,
         std::vector<std::unique_ptr<ASTNode>>());

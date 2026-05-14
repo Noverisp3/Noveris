@@ -138,6 +138,10 @@ std::unique_ptr<ASTNode> Parser::parseStatement() {
         return parseRun();
     }
     
+    if (match(TokenType::EXEC)) {
+        return parseExec();
+    }
+
     if (peek().type == TokenType::IDENTIFIER && checkPeek(1, TokenType::LPAREN)) {
         return parseFunctionDef();
     }
@@ -236,6 +240,48 @@ std::unique_ptr<RunNode> Parser::parseRun() {
     return n;
 }
 
+std::unique_ptr<ExecNode> Parser::parseExec() {
+    Token anchor = tokens[current - 1];
+    // Expect command name: "write" or "read"
+    Token cmdTok = consume(TokenType::IDENTIFIER, "Expected command name after 'exec'");
+    std::string command = cmdTok.value;
+
+    std::string filePath;
+    std::string content;
+
+    // Parse flags: --path "..." and optionally --data "..."
+    while (!isAtEnd() && peek().type != TokenType::NEWLINE && peek().type != TokenType::EOF_TOKEN) {
+        if (match(TokenType::FLAG)) {   // flag like --path
+            std::string flag = tokens[current - 1].value;
+            if (flag == "--path" || flag == "-p") {
+                Token pathTok = consume(TokenType::STRING, "Expected file path after --path");
+                filePath = pathTok.value;
+            } else if (flag == "--data" || flag == "-d") {
+                Token dataTok = consume(TokenType::STRING, "Expected content string after --data");
+                content = dataTok.value;
+            } else {
+                throw std::runtime_error("Unknown flag: " + flag + formatTokenLoc(peek()));
+            }
+        } else {
+            break;
+        }
+    }
+
+    if (command != "write" && command != "read") {
+        throw std::runtime_error("Unknown exec command: " + command);
+    }
+    if (filePath.empty()) {
+        throw std::runtime_error("Missing --path argument for exec " + command + formatTokenLoc(cmdTok));
+    }
+    if (command == "write" && content.empty()) {
+        throw std::runtime_error("Missing --data argument for exec write" + formatTokenLoc(cmdTok));
+    }
+
+    auto n = std::make_unique<ExecNode>(command, filePath, content);
+    assignNodeLoc(n.get(), anchor);
+    return n;
+}
+
 std::unique_ptr<FunctionDefNode> Parser::parseFunctionDef() {
     Token name = consume(TokenType::IDENTIFIER, "Expected function name");
     consume(TokenType::LPAREN, "Expected '(' after function name");
@@ -250,9 +296,6 @@ std::unique_ptr<FunctionDefNode> Parser::parseFunctionDef() {
             continue;
         }
         if (peek().type == TokenType::RPAREN) {
-            break;
-        }
-        if (peek().type == TokenType::IDENTIFIER && checkPeek(1, TokenType::LPAREN)) {
             break;
         }
         body.push_back(parseStatement());
@@ -484,6 +527,11 @@ std::unique_ptr<ASTNode> Parser::parsePrimary() {
         std::unique_ptr<ASTNode> expr = parseLogicalOr();
         consume(TokenType::RPAREN, "Expected ')' after expression");
         return expr;
+    }
+    
+    if (match(TokenType::EXEC)) {
+        Token execAnchor = tokens[current - 1];
+        return parseExec();
     }
     
     throw std::runtime_error("Unexpected token in expression: " + peek().value + formatTokenLoc(peek()));

@@ -27,7 +27,8 @@ private:
     std::unique_ptr<ResNode> parseRes();
     std::unique_ptr<RunNode> parseRun();
     std::unique_ptr<FunctionDefNode> parseFunctionDef();
-    
+    std::unique_ptr<ExecNode> parseExec();
+
     std::unique_ptr<ASTNode> parseExpression();
     std::unique_ptr<ASTNode> parseLogicalOr();
     std::unique_ptr<ASTNode> parseLogicalAnd();

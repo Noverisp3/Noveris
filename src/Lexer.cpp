@@ -18,7 +18,8 @@ Lexer::Lexer(const std::string& source)
         {"while", TokenType::WHILE},
         {"for", TokenType::FOR},
         {"true", TokenType::BOOLEAN},
-        {"false", TokenType::BOOLEAN}
+        {"false", TokenType::BOOLEAN},
+        {"exec", TokenType::EXEC}
       }) {}
 
 char Lexer::current() const {
@@ -133,6 +134,32 @@ Token Lexer::readIdentifier() {
     return Token(type, identifier, startLine, startColumn);
 }
 
+Token Lexer::readFlag() {
+    int startLine = line;
+    int startColumn = column;
+    std::string flag;
+    
+    // Skip the first dash
+    advance();
+    
+    // Check if it's a double-dash flag (--) or single-dash flag (-)
+    if (current() == '-') {
+        advance(); // Skip the second dash
+        while (isalnum(current()) || current() == '_' || current() == '-') {
+            flag += current();
+            advance();
+        }
+        return Token(TokenType::FLAG, "--" + flag, startLine, startColumn);
+    } else {
+        // Single-dash flag (e.g., -p, -d)
+        while (isalnum(current())) {
+            flag += current();
+            advance();
+        }
+        return Token(TokenType::FLAG, "-" + flag, startLine, startColumn);
+    }
+}
+
 std::vector<Token> Lexer::tokenize() {
     std::vector<Token> tokens;
     
@@ -158,6 +185,12 @@ std::vector<Token> Lexer::tokenize() {
         }
         else if (isalpha(c) || c == '_') {
             tokens.push_back(readIdentifier());
+        }
+        else if (c == '-' && peek() == '-') {
+            tokens.push_back(readFlag());
+        }
+        else if (c == '-' && (isalnum(peek(1)) || peek(1) == '_')) {
+            tokens.push_back(readFlag());
         }
         else if (c == '=') {
             advance();
@@ -271,6 +304,8 @@ void Lexer::printTokens(const std::vector<Token>& tokens) {
             case TokenType::STOP: std::cout << "STOP"; break;
             case TokenType::WHILE: std::cout << "WHILE"; break;
             case TokenType::FOR: std::cout << "FOR"; break;
+            case TokenType::EXEC: std::cout << "EXEC"; break;
+            case TokenType::FLAG: std::cout << "FLAG(" << token.value << ")"; break;
             case TokenType::NUMBER: std::cout << "NUMBER(" << token.value << ")"; break;
             case TokenType::STRING: std::cout << "STRING(\"" << token.value << "\")"; break;
             case TokenType::BOOLEAN: std::cout << "BOOLEAN(" << token.value << ")"; break;

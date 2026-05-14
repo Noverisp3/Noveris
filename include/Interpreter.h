@@ -47,6 +47,7 @@ public:
     void visit(RunNode& node) override;
     void visit(FunctionDefNode& node) override;
     void visit(BlockNode& node) override;
+    void visit(ExecNode& node) override;
 };
 
 #endif // INTERPRETER_H
