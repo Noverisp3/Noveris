@@ -41,7 +41,7 @@ set name "Noveris"
 - Assignment operations: `do` and `set`
 - Parentheses for operation precedence
 - Comparison operators: `=`, `>`, `<`, `>=`, `<=`, `!=`
-- Logical operators: `&&`, `||`, `!`
+- Logical operators: `&&`, `||`, `!` (`&&` and `||` short-circuit: the right-hand side is skipped when the result is already fixed)
 
 ### Comparison Operations
 ```noveris
@@ -54,6 +54,12 @@ if y < 10:
 if value = 42:
     print "value equals 42"
 ```
+
+### Chained comparisons
+
+You can chain comparison operators (same idea as Python). For example, `a <= b <= c` is equivalent to `(a <= b) && (b <= c)`: each pair is compared, and all of them must hold.
+
+If you split the logic across variables, keep the **middle value** in the second check. Storing only `a <= b` gives a boolean, not `b`, so `(a <= b) && (b <= c)` matches the chain; `(a <= b) <= c` does not.
 
 ### Data Types
 - Numbers (double precision floating point)
@@ -103,6 +109,8 @@ if name = "Noveris":
 - **Inline Logic**: Supports inline conditional expressions
 - **Robust Control Flow**: Multiple exit strategies (out, res, stop)
 - **Type Safety**: Automatic type conversion with runtime checks
+- **Chained comparisons**: Expressions like `x < y <= z` expand to conjunctions of pairwise comparisons
+- **Short-circuit logic**: `&&` and `||` skip evaluating the right operand when it cannot change the result
 
 ## Project Structure
 
@@ -125,9 +133,9 @@ Noveris/
 │   ├── functions.nv       # Function definitions
 │   ├── boolean.nv         # Boolean operations
 │   └── edge_test_*.nv     # Edge case test programs
-├── build/                 # Build output directory
-│   ├── bin/               # Compiled executable
-│   └── CMakeLists.txt     # Build configuration
+├── local/                 # Optional local scripts and notes (not required to build)
+├── build/                 # Build output directory (created by CMake)
+│   └── bin/               # Compiled executable (e.g. `noveris` / `noveris.exe`)
 └── README.md              # This file
 ```
 
@@ -196,11 +204,13 @@ print "Quote: \\\"Hello\\\""   // Outputs: Quote: "Hello"
 print "Path: C:\\\\Users"      // Outputs: Path: C:\Users
 ```
 
-On Windows:
-```bash
-bin\Release\noveris.exe path\to\your\file.nv
-bin\Release\noveris.exe -v path\to\your\file.nv
+On Windows (typical CMake single-config build, from the project root):
+```powershell
+.\build\bin\noveris.exe path\to\your\file.nv
+.\build\bin\noveris.exe -v path\to\your\file.nv
 ```
+
+With a multi-config generator (Visual Studio), the executable may be under `build\bin\Release\` or `build\bin\Debug\` instead.
 
 ## Implementation Details
 
@@ -221,14 +231,14 @@ The interpreter supports:
 - **Control flow statements** (out, res, stop) for program control
 - **Inline expressions** for concise conditional logic
 - **String operations** including concatenation with automatic type conversion
+- **Chained comparisons** and **short-circuit** `&&` / `||` as described above
 
 ### Error Handling
 
 The language provides clear error messages for:
-- Parse errors with line and column information
-- Runtime errors for undefined variables or functions
-- Type conversion errors with descriptive messages
-- Division by zero protection
+- **Parse errors** with line and column information (where the parser got stuck)
+- **Runtime errors** (undefined variable or function, division by zero, invalid numeric conversion, unknown operator) with **line and column** when the failing expression or statement was given a source location in the AST
+- Division by zero protection on `/`
 
 ## License
 
